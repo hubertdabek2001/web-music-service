@@ -6,7 +6,7 @@
 	"service": "app",
 	"workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
 	"features": {
-		"ghcr.io/devcontainers-extra/features/typescript:2": {}
+		"ghcr.io/devcontainers-community/npm-features/typescript:1": {}
 	},
 
 	// Features to add to the dev container. More info: https://containers.dev/features.
@@ -14,7 +14,21 @@
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// This can be used to network with other containers or with the host.
-	// "forwardPorts": [3000, 5432],
+	"forwardPorts": [
+		3000,
+		5432
+	],
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"dbaeumer.vscode-eslint",
+				"EchoAPI.echoapi-for-vscode",
+				"humy2833.ftp-simple",
+				"mtxr.sqltools",
+				"mtxr.sqltools-driver-pg"
+			]
+		}
+	}
 
 	// Use 'postCreateCommand' to run commands after the container is created.
 	// "postCreateCommand": "yarn install",
@@ -24,16 +38,4 @@
 
 	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
 	// "remoteUser": "root"
-	"customizations": {
-		"vscode": {
-			"extensions": [
-				"dbaeumer.vscode-eslint",
-				"EchoAPI.echoapi-for-vscode",
-				"humy2833.ftp-simple",
-				"mtxr.sqltools",
-				"mtxr.sqltools-driver-pg",
-				"ms-azuretools.vscode-docker"
-			]
-		}
-	}
 }

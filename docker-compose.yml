@@ -30,19 +30,18 @@ services:
 
     # Add "forwardPorts": ["5432"] to **devcontainer.json** to forward PostgreSQL locally.
     # (Adding the "ports" property to this file will not forward from a Codespace.)
-  ftp:
-    image: fauria/vsftpd
-    environment:
-        - FTP_USER=admin
-        - FTP_PASS=admin
-    #ports:
-        #- 0.0.0.0:20:20
-        #- 0.0.0.0:21:21
-    volumes: 
-        - /var/app/ftp:/home/vsftpd
-        - /var/log/ftp:/var/log/vsftpd
-    network_mode: service:db
-
-
+  ftp-server:
+        container_name: my-ftp-server
+        environment:
+            - PUBLIC_IP=10.0.12.7
+            - FTP_PASS=ftp
+            - FTP_USER=ftp
+        image: garethflowers/ftp-server
+        #ports:
+            #- "20-21:20-21/tcp"
+            #- "40000-40009:40000-40009/tcp" # For passive mode
+        volumes:
+            - "/data:/home/user"
 volumes:
   postgres-data:
+  ftp-data:
