@@ -1,16 +1,19 @@
+
 // logowanie użytkownika
+
 
 document.getElementById('login-form').addEventListener('submit', async (event) => {
     event.preventDefault();
 
-    const username = document.getElementById('username');
-    const password = document.getElementById('password');
-
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    console.log("Username: ", username);
+    console.log("Password: ", password);
     try {
-        const response = await fetch('/login', {
+        const response = await fetch('http://localhost:3000/login', {
             method: 'POST',
             headers: {
-                'Content type': 'application/json'
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({ username, password })
         })
@@ -20,8 +23,8 @@ document.getElementById('login-form').addEventListener('submit', async (event) =
         }else{
             document.getElementById('login-error').style.display = 'block';
         }
-    }catch (err) {
-        console.error('Error loggin in ', err);
+    }catch (error) {
+        console.error('Error loggin in ', error);
         document.getElementById('login-error').style.display = 'block';
     };
 });

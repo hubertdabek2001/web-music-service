@@ -26,3 +26,22 @@ header nav ul li a {
 header nav ul li a:hover {
     background: #555;
 }
+
+
+
+#register-background{
+    text-align: center;
+    align-items: center;
+    background-color: #bdbdbd;
+    width: 31vw;
+}
+#register-form{
+    display: grid;
+    width: 30vw;
+    align-items: center;
+    text-align: center;
+    padding: 10px;
+}
+#register-form label{
+    text-align: left;
+}

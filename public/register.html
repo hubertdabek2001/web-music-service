@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+    <title>Register to application</title>
+</head>
+<body>
+    <h1>Register</h1>
+    <div id="register-background">
+        <form id="register-form">
+            <label for="first_name">First Name:</label>
+            <input type="text" id="first_name" name="first_name">
+            <label for="last_name">Last Name:</label>
+            <input type="text" id="last_name" name="last_name">
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username">
+            <label for="email_address">Email Address:</label>
+            <input type="email" id="email_address" name="email_address">
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password">
+            <label for="confirm_password">Confirm Password:</label>
+            <input type="password" id="confirm_password" name="confirm_password">
+            <button type="submit" onclick="passawordRequirementsCheck()">Register</button>
+        </form>
+    </div>
+    <script src="script-register.js"></script>
+    <p id="register-success" style="color: green; display: none;">Success!</p>
+    <p id="register-error" style="color: red; display: none;">Unable to register</p>
+</body>
+</html>
