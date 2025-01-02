@@ -9,12 +9,16 @@ const jwt = require('jsonwebtoken');
 const path = require('path');
 const nodemailer = require('nodemailer');
 const schedule = require('node-schedule');
+const multer = require('multer');
+const ftp = require('basic-ftp');
+const fs = require('fs');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT;
 const SECRET_KEY = process.env.SECRET_KEY;
 
+const upload = multer({dest: 'uploads/'});
 
 //middleware
 app.use(express.json());
@@ -419,4 +423,78 @@ app.get('/api/users/:id', async(req, res) => {
         console.error('Error fetch user data:',err)
         res.status(500).json({error: 'Internal Server Error'});
     }
+})
+
+//FTP: uploading new file
+app.post('/api/requests', upload.single('file'), async (req, res) => {
+    try {
+        const {
+            title,
+            album,
+            author,
+            genre,
+            release_date,
+            requester_id, // Identyfikator użytkownika wysyłającego żądanie
+        } = req.body;
+
+        const filePath = req.file ? req.file.path : null; // Ścieżka do pliku (jeśli przesłano)
+
+        // Walidacja danych wejściowych
+        if (!title || !album || !author || !genre || !release_date || !requester_id || !filePath) {
+            return res.status(400).json({ error: 'All fields are required.' });
+        }
+
+        // Generowanie statusu i daty
+        const status = 'Pending'; // Domyślny status
+        const createdAt = new Date(); // Data utworzenia rekordu
+
+        // Zapytanie SQL do zapisu danych w tabeli `requests`
+        const insertQuery = `
+            INSERT INTO requests (
+                title,
+                album,
+                author,
+                genre,
+                release_date,
+                requester_id,
+                status,
+                created_at,
+                url
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        `;
+
+        // Wykonanie zapytania
+        await pool.query(insertQuery, [
+            title,
+            album,
+            author,
+            genre,
+            release_date,
+            requester_id,
+            status,
+            createdAt,
+            filePath,
+        ]);
+
+        // Zwrot odpowiedzi
+        res.status(200).json({ message: 'Request submitted successfully.' });
+    } catch (error) {
+        console.error('Error saving request:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+//Genre:
+
+app.get('/api/genres', async(req, res) => {
+    try{
+        const result = await pool.query('SELECT * FROM genre');
+        res.status(200).json(result.rows);
+
+    }catch (err){
+        console.error('Error fetching genres', err);
+        res.status(500).json({error: 'An error occured'})
+    }
+    
 })

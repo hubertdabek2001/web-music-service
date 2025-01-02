@@ -69,14 +69,14 @@ button:hover {
     background-color: #bdbdbd;
     width: 31vw;
 }
-#register-form{
+form{
     display: grid;
     width: 30vw;
     align-items: center;
     text-align: center;
     padding: 10px;
 }
-#register-form label{
+form label{
     text-align: left;
 }
 

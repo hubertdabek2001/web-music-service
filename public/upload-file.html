@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+    <title>Document</title>
+</head>
+<body>
+    <header>
+        <nav>
+            <ul>
+                <li><a href="/">Home</a></li>
+                <li><a href="/dashboard">Dashboard</a></li>
+                <li id="dashboard-username"><a href="">hello</a></li>
+                <li><a href="/logout">Logout</a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <h1>Request a New Song</h1>
+        <form id="song-request-form" enctype="multipart/form-data">
+            <label for="title">Title:</label>
+            <input type="text" id="title" name="title" required>
+        
+            <label for="album">Album:</label>
+            <input type="text" id="album" name="album" required>
+        
+            <label for="author">Author:</label>
+            <input type="text" id="author" name="author" required>
+        
+            <label for="genre">Genre:</label>
+            <input type="text" id="genre" name="genre" required>
+        
+            <label for="release_date">Release Date:</label>
+            <input type="date" id="release_date" name="release_date" required>
+        
+            <label for="requester_id">Requester ID:</label>
+            <input type="number" id="requester_id" name="requester_id" required>
+        
+            <label for="file">Upload File:</label>
+            <input type="file" id="file" name="file" required>
+        
+            <button type="submit">Submit Request</button>
+        </form>
+        <p id="request-status"></p>
+        
+        <p id="request-status"></p>
+    </main>
+
+    <script>
+        async function fetchGenres() {
+            try {
+                const response = await fetch('/api/genres');
+                if (response.ok) {
+                    const genres = await response.json();
+                    const genreSelect = document.getElementById('genre');
+
+                    genres.forEach(genre => {
+                        const option = document.createElement('option');
+                        option.value = genre.genre_id;
+                        option.textContent = genre.genre_name;
+                        genreSelect.appendChild(option);
+                    });
+                } else {
+                    console.error('Failed to fetch genres');
+                }
+            } catch (err) {
+                console.error('Error fetching genres:', err);
+            }
+        }
+
+        // Handle form submission
+        document.getElementById('song-request-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    const formElement = document.getElementById('song-request-form');
+    const formData = new FormData(formElement); // Zbiera wszystkie pola formularza
+
+    try {
+        const response = await fetch('/api/requests', {
+            method: 'POST',
+            body: formData,
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            document.getElementById('request-status').innerText = 'Your request has been submitted successfully!';
+            formElement.reset();
+        } else {
+            document.getElementById('request-status').innerText = `Error: ${result.error}`;
+        }
+    } catch (error) {
+        console.error('Error submitting request:', error);
+        document.getElementById('request-status').innerText = 'An error occurred while submitting your request.';
+    }
+});
+
+
+        // Initialize the genres dropdown when the page loads
+        document.addEventListener('DOMContentLoaded', fetchGenres);
+    </script>
+    
+</body>
+</html>
