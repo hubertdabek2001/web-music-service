@@ -274,17 +274,32 @@ app.get('/dashbaord', verifyAdmin, (req, res) => {
 
 app.get('/api/users', verifyAdmin, async(req, res) => {
 
-    const { sortBy = 'id', sortOrder = 'asc'} = req.query;
+    const { 
+        sortBy = 'id', 
+        sortOrder = 'asc',
+        searchColumn = '',
+        searchTerm = ''
+    }= req.query;
 
     const validColumns = ['id','first_name', 'last_name', 'username', 'email', 'role'];
-    const validOrders = ['asc', 'dsc'];
+    const validOrders = ['asc', 'desc'];
 
     if(!validColumns.includes(sortBy) || !validOrders.includes(sortOrder)){
         return res.status(400).json({message: 'Invalid sort parameters'});
     }
 
     try {
-        const result = await pool.query(`SELECT id, first_name, last_name, username, email, is_verified FROM users ORDER BY ${sortBy} ${sortOrder}`);
+        let query = 'SELECT * FROM users';
+        const params = [];
+
+        if(searchColumn && searchTerm){
+            query += ` WHERE ${searchColumn} ILIKE $1`;
+            params.push(`%${searchTerm}`);
+        }
+
+        query += ` ORDER BY ${sortBy} ${sortOrder}`
+
+        const result = await pool.query(query, params)
         res.json(result.rows);
     }catch (err) {
         console.error('Error fetching users: ', err);

@@ -22,6 +22,29 @@
         <h1>Admin dashboard</h1>
         <div>
             <h2>User Management</h2>
+            <label for="search-bar">Search:</label>
+            <input type="text" id="search-bar" placeholder="Search for term">
+            <label for="search-column">Search by:</label>
+            <select id="search-column">
+                <option value="username">Username</option>
+                <option value="email">Email</option>
+                <option value="first_name">First Name</option>
+                <option value="last_name">Last Name</option>
+            </select>   
+
+            <label for="sort-users">Sort By:</label>
+            <select name="" id="sort-users">
+                <option value="id">ID</option>
+                <option value="first_name">First Name</option>
+                <option value="last_name">Last Name</option>
+                <option value="email">Email Address</option>
+                <option value="username">Username</option>
+            </select>
+            <select name="" id="asc-dec">
+                <option value="asc">Ascending</option>
+                <option value="desc">Decsnding</option>
+            </select>
+            <button id="apply-sort">Apply</button>
             <table id="users-table" border="1">
                 <thead>
                     <tr>
@@ -60,9 +83,9 @@
             }
         }
 
-        async function fetchUsers() {
+        async function fetchUsers(sortBy = 'id', sortOrder = 'asc', searchColumn = '', searchTerm = '') {
             try{
-                const response = await fetch('/api/users', {
+                const response = await fetch(`/api/users?sortBy=${sortBy}&sortOrder=${sortOrder}&searchColumn=${searchColumn}&searchTerm=${searchTerm}`, {
                     method: 'GET',
                     headers: {
                         'Content-Type': 'application/json'
@@ -109,7 +132,7 @@
 
                 if(response.ok){
                     alert('User delete Successfully');
-                    fetchUsers();
+                    applySort();
                 }else {
                     alert('Falied to delete user');
                 }
@@ -119,8 +142,29 @@
             }
         }
 
+        document.getElementById('apply-sort').addEventListener('click', () => {
+            const sortBy = document.getElementById('sort-users').value;
+            const sortOrder = document.getElementById('asc-dec').value;
+            const searchColumn = document.getElementById('search-column').value;
+            const searchTerm = document.getElementById('search-bar').value;
+            
+            fetchUsers(sortBy, sortOrder, searchColumn, searchTerm);
+        })
+
+
+
         document.addEventListener('DOMContentLoaded', verifyAccess);
-        document.addEventListener('DOMContentLoaded', fetchUsers);
+        document.addEventListener('DOMContentLoaded', () => fetchUsers());
+
+        function applySort(){
+            const sortValue = document.getElementById('sort-users').value;
+            const sortType = document.getElementById('asc-dec').value;
+            const searchColumn = document.getElementById('search-column').value;
+            const searchTerm = document.getElementById('search-bar').value;
+            
+            fetchUsers(sortBy, sortOrder, searchColumn, searchTerm);
+            
+        }
     </script>
 </body>
 </html>
