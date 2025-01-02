@@ -31,6 +31,31 @@ app.use(session({
 //middleware do obsługi plikow statycznych
 app.use(express.static(path.join(__dirname, 'public')));
 
+//middleware do sprawdzania roli administratora
+
+function verifyAdmin(req, res, next){
+    const token = req.cookies.auth_token;
+
+    if(!token){
+        return res.status(401).send('Unauthorized');
+    }
+
+    try {
+        const decoded = jwt.verify(token, SECRET_KEY);
+
+        if(decoded.role !== 'admin') {
+            return res.status(403).send('Access denied');
+        }
+
+        next();
+    } catch (err) {
+        console.error('Error verifying admin:', err)
+        res.status(401).send('Unauthorized');
+    }
+}
+
+
+
 
 app.listen(PORT, () => {
     console.log(`Serwer działa na porcie ${PORT}`);
@@ -185,10 +210,10 @@ app.get('/dashboard', (req, res) => {
     try{
         const decoded = jwt.verify(token, SECRET_KEY);
         if(decoded.role === 'admin'){
-            res.send('Welcome, Admin! <a href=\"/manage\">Manage Users </a>');
+            return res.redirect("dashboard.html");
         }
         else{
-            res.send('Welcome. Users');
+            res.send(`Welcome. User ${decoded.first_name}`);
         }
     } catch (err){
         res.status(400).send('Invalid token');
@@ -227,5 +252,104 @@ schedule.scheduleJob('0 * * * *', async () => {
         
     }catch (err) {
         console.error('Error during scheduled cleanup ',err);
+    }
+})
+
+app.get('/register', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public/register.html'));
+})
+
+app.get('/login', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public/login.html'));
+})
+
+//dashboard
+//access only for role: admin
+
+app.get('/dashbaord', verifyAdmin, (req, res) => {
+    res.sendFile(path.join(__dirname, 'dashboard.html'))
+})
+
+//api fetch list of users in database
+
+app.get('/api/users', verifyAdmin, async(req, res) => {
+
+    const { sortBy = 'id', sortOrder = 'asc'} = req.query;
+
+    const validColumns = ['id','first_name', 'last_name', 'username', 'email', 'role'];
+    const validOrders = ['asc', 'dsc'];
+
+    if(!validColumns.includes(sortBy) || !validOrders.includes(sortOrder)){
+        return res.status(400).json({message: 'Invalid sort parameters'});
+    }
+
+    try {
+        const result = await pool.query(`SELECT id, first_name, last_name, username, email, is_verified FROM users ORDER BY ${sortBy} ${sortOrder}`);
+        res.json(result.rows);
+    }catch (err) {
+        console.error('Error fetching users: ', err);
+        res.status(500).send('Internal state error');
+    }
+})
+
+//delete endpoint button in /api/users
+
+app.delete('/api/users/:id', verifyAdmin, async(req, res) => {
+    
+    try{
+        const userID = req.params.id;
+        await pool.query('DELETE FROM users WHERE id = $1', [userID]);
+        res.status(200).send('User deleted successfully.');
+    } catch(err) {
+        console.error('Error deleteing user: ',err);
+        res.status(500).send('Internal state error');
+    }
+
+})
+
+//verify access for admin only
+
+app.get('/api/verify-admin', (req, res) => {
+    const token = req.cookies.auth_token;
+
+    if(!token){
+        return res.status(401).send('Unauthorized');
+    }
+
+    try {
+        const decoded = jwt.verify(token, SECRET_KEY);
+
+        if(decoded.role === 'admin'){
+            return res.status(200).send('Authorized');
+        } else {
+            return res.status(403).send('Access denied');
+        }
+    } catch (err) {
+        console.error('Error verifying admin: ', err);
+        res.status(401).send('Unauthorized');
+    }
+})
+
+//current user session
+
+app.get('/api/current-user', async (req, res) => {
+    const token = req.cookies.auth_token;
+
+    if(!token){
+        return res.status(401).json({message: 'Not logged in'});
+    }
+
+    try{
+        const decoded = jwt.verify(token, SECRET_KEY);
+        const user = await pool.query('SELECT id, first_name, last_name, username, email, role, registration_date FROM users where id = $1', [decoded.id]);
+        
+        if (user.rows.length > 0) {
+            return res.status(200).json(user.rows[0]);
+        }else {
+            return res.status(404).json({message: 'User not found'});
+        }
+    }catch (err){
+        console.error('Error verifying user: ', err);
+        return res.status(401).json({ message: 'Invalid token'});
     }
 })
