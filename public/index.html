@@ -12,9 +12,10 @@
             <ul>
                 <li><a href="/">Home</a></li>
                 <li id="dashboard-link" style="display: none;"><a href="/dashboard">Dashboard</a></li>
-                <li id="logout-link" style="display: none;"><a href="/logout">Logout</a></li>
                 <li id="login-link" style="display: none;"><a href="/login">Login</a></li>
                 <li id="register-link" style="display: none;"><a href="/register">Register</a></li>
+                <li id="dashboard-username"><a href="/"></a></li>
+                <li id="logout-link" style="display: none;"><a href="/logout">Logout</a></li>
             </ul>
         </nav>
     </header>
@@ -34,38 +35,40 @@
     </main>
     <script>
         async function checkCurrentUser(){
-            try{
-                const response = await fetch('/api/current-user', {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    credentials:"include"
-                });
+    try{
+        const response = await fetch('/api/current-user', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            credentials:"include"
+        });
 
-                if(response.ok){
-                    const user = await response.json();
-                    document.getElementById('user-info').style.display = 'block';
-                    document.getElementById('user-name').textContent = `${user.first_name} ${user.last_name}`;
-                    document.getElementById('user-username').textContent = user.username;
-                    document.getElementById('user-email').textContent = user.email;
-                    document.getElementById('user-role').textContent = user.role;
-
-                    document.getElementById('dashboard-link').style.display = user.role === 'admin' ? 'inline' : 'none';
-                    document.getElementById('logout-link').style.display = 'inline';
-                }else {
-                    document.getElementById('auth-buttons').style.display = 'block';
-                    document.getElementById('login-link').style.display = 'inline';
-                    document.getElementById('register-link').style.display = 'inline';
-                }
-            }catch (err) {
-                console.error('Error checking user:', error);
-                document.getElementById('auth-buttons').style.display = 'block';
-                document.getElementById('login-link').style.display = 'inline';
-                document.getElementById('register-link').style.display = 'inline';
-            }
+        if(response.ok){
+            const user = await response.json();
+            document.getElementById('user-info').style.display = 'block';
+            document.getElementById('user-name').textContent = `${user.first_name} ${user.last_name}`;
+            document.getElementById('user-username').textContent = user.username;
+            document.getElementById('user-email').textContent = user.email;
+            document.getElementById('user-role').textContent = user.role;
+            
+            document.getElementById('dashboard-username').innerHTML = `<a href="">Hello, ${user.first_name}</a>`;
+            
+            document.getElementById('dashboard-link').style.display = user.role === 'admin' ? 'inline' : 'none';
+            document.getElementById('logout-link').style.display = 'inline';
+        }else {
+            document.getElementById('auth-buttons').style.display = 'block';
+            document.getElementById('login-link').style.display = 'inline';
+            document.getElementById('register-link').style.display = 'inline';
         }
-        document.addEventListener('DOMContentLoaded', checkCurrentUser);
+    }catch (err) {
+        console.error('Error checking user:', error);
+        document.getElementById('auth-buttons').style.display = 'block';
+        document.getElementById('login-link').style.display = 'inline';
+        document.getElementById('register-link').style.display = 'inline';
+    }
+}
+document.addEventListener('DOMContentLoaded', checkCurrentUser);
     </script>
 </body>
 </html>

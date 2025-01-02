@@ -12,8 +12,7 @@
             <ul>
                 <li><a href="/">Home</a></li>
                 <li><a href="/dashboard">Dashboard</a></li>
-                <li><a href="/login">Login</a></li>
-                <li><a href="register.html">Register</a></li>
+                <li id="dashboard-username"><a href="">hello</a></li>
                 <li><a href="/logout">Logout</a></li>
             </ul>
         </nav>
@@ -76,12 +75,37 @@
 
                 if(!response.ok) {
                     window.location.href = '/';
+                    
                 }
             }catch (err) {
                 console.error('Error verifying admin access: ', err);
                 windows.location.href = '/';
             }
         }
+async function checkCurrentUser(){
+    try{
+        const response = await fetch('/api/current-user', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            credentials:"include"
+        });
+
+        if(response.ok){
+            const user = await response.json();
+            document.getElementById('dashboard-username').innerHTML = `<a href="">Hello, ${user.first_name}</a>`;
+            
+        }else {
+            document.getElementById('dashboard-username').innerHTML = `<a href>Unknown</a>`;
+
+        }
+    }catch (err) {
+        console.error('Error checking user:', error);
+        
+    }
+}
+        document.addEventListener('DOMContentLoaded', checkCurrentUser);
 
         async function fetchUsers(sortBy = 'id', sortOrder = 'asc', searchColumn = '', searchTerm = '') {
             try{
@@ -107,7 +131,7 @@
                         <th>${user.username}</th>
                         <th>${user.email}</th>
                         <th>${user.is_verified ? 'Yes' : 'No'}</th>
-                        <th><button onclick = "deleteUser(${user.id})">Delete</button></th>
+                        <th><button onclick = "showProfile(${user.id})">Show Profile</button></th>
                         `;
 
                         tableBody.appendChild(row);
@@ -150,11 +174,11 @@
             
             fetchUsers(sortBy, sortOrder, searchColumn, searchTerm);
         })
-
-
-
+ 
         document.addEventListener('DOMContentLoaded', verifyAccess);
         document.addEventListener('DOMContentLoaded', () => fetchUsers());
+
+        
 
         function applySort(){
             const sortValue = document.getElementById('sort-users').value;
@@ -164,6 +188,10 @@
             
             fetchUsers(sortBy, sortOrder, searchColumn, searchTerm);
             
+        }
+
+        function showProfile(userId) {
+            window.location.href = `/user-profile.html?id=${userId}`;
         }
     </script>
 </body>

@@ -10,10 +10,7 @@ header nav ul {
     display: flex;
     background: #333;
     margin: 0;
-}
-
-header nav ul li {
-    margin: 0;
+    display: flex;
 }
 
 header nav ul li a {
@@ -21,10 +18,17 @@ header nav ul li a {
     padding: 10px 20px;
     color: #fff;
     text-decoration: none;
+    flex-grow: 1;
 }
 
 header nav ul li a:hover {
     background: #555;
+}
+
+#dashboard-username a:hover{
+    background-color: #333;
+    cursor:auto;
+
 }
 
 table {
@@ -75,3 +79,4 @@ button:hover {
 #register-form label{
     text-align: left;
 }
+

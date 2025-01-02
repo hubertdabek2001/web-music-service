@@ -213,7 +213,7 @@ app.get('/dashboard', (req, res) => {
             return res.redirect("dashboard.html");
         }
         else{
-            res.send(`Welcome. User ${decoded.first_name}`);
+            return res.redirect("/");
         }
     } catch (err){
         res.status(400).send('Invalid token');
@@ -224,6 +224,10 @@ app.get('/logout', (req, res) => {
     res.clearCookie('auth_token');
     res.redirect('/');
 });
+
+app.get('/', verifyAdmin, (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'))
+})
 
 
 //deleting user after 60seconds of non authorized registration (endpoint test)
@@ -366,5 +370,53 @@ app.get('/api/current-user', async (req, res) => {
     }catch (err){
         console.error('Error verifying user: ', err);
         return res.status(401).json({ message: 'Invalid token'});
+    }
+})
+
+/*app.get('/user-profile', async (req, res) => {
+    const { id } = req.query;
+
+    if(!id){
+        return res.status(400).send('User ID is required');
+    }
+
+    try{
+        const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+
+        if(result.rows.length === 0){
+            return res.status(404).send('User not found');
+        }
+
+        const user = result.rows[0];
+        res.send(`
+             <h1>User Profile</h1>
+            <p><strong>ID:</strong> ${user.id}</p>
+            <p><strong>First Name:</strong> ${user.first_name}</p>
+            <p><strong>Last Name:</strong> ${user.last_name}</p>
+            <p><strong>Username:</strong> ${user.username}</p>
+            <p><strong>Email:</strong> ${user.email}</p>
+            <p><strong>Verified:</strong> ${user.is_verified ? 'Yes' : 'No'}</p>
+            <p><strong>Email:</strong> ${user.email}</p>
+            <a href="/dashboard">Back to Dashboard</a>`);
+    } catch (err){
+        console.error('Error fetching user profile:', err);
+        res.status(500).send('Internal Server Error');
+    }
+})*/
+
+app.get('/api/users/:id', async(req, res) => {
+    const { id } = req.params;
+
+    try{
+        const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+
+        if(result.rows.length === 0){
+            return res.status(404).json({error: 'User not found'});
+        }
+
+        res.json(result.rows[0]);
+    }catch (err) {
+        console.error('Error fetch user data:',err)
+        res.status(500).json({error: 'Internal Server Error'});
     }
 })

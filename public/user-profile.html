@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+    <title>User profile</title>
+</head>
+<body>
+    <header>
+        <nav>
+            <ul>
+                <li><a href="/">Home</a></li>
+                <li><a href="/dashboard">Dashboard</a></li>
+                <li id="dashboard-username">Not logged in</li>
+                <li><a href="/logout">Logout</a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        <h1>User profile</h1>
+        <div id="user-details">
+            <p>Loading user details...</p>
+        </div>
+        <a href="/dashboard">Back to dashboard</a>
+    </main>
+    <script>
+        async function fetchUserProfile() {
+            const params = new URLSearchParams(window.location.search);
+            const userID = params.get('id');
+
+            if(!userID){
+                document.getElementById('user-details').innerHTML = '<p>User ID not provided.</p>';
+                return;
+            }
+
+            try{
+                const response = await fetch(`/api/users/${userID}`, {
+                    method: 'GET',
+                    headers:{
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if(response.ok){
+                    const user = await response.json();
+                    document.getElementById('user-details').innerHTML = `
+                    <p><strong>ID:</strong> ${user.id}</p>
+                        <p><strong>First Name:</strong> ${user.first_name}</p>
+                        <p><strong>Last Name:</strong> ${user.last_name}</p>
+                        <p><strong>Username:</strong> ${user.username}</p>
+                        <p><strong>Email:</strong> ${user.email}</p>
+                        <p><strong>Verified:</strong> ${user.is_verified ? 'Yes' : 'No'}</p>
+                        <p><strong>Account created:</strong> ${user.registration_date}</p>
+                    `
+                }else {
+                    document.getElementById('user-details').innerHTML = '<p>Failed load the user</p>'
+                }
+            }catch (err) {
+                console.error('Error fetching user profile ',err);
+                document.getElementById('user-profile').innerHTML = '<p>An error occured while loading user details. </p>'
+            }
+        }
+        async function checkCurrentUser(){
+    try{
+        const response = await fetch('/api/current-user', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            credentials:"include"
+        });
+
+        if(response.ok){
+            const user = await response.json();
+            document.getElementById('dashboard-username').innerHTML = `<a href="">Hello, ${user.first_name}</a>`;
+            
+        }else {
+            document.getElementById('dashboard-username').innerHTML = `<a href>Unknown</a>`;
+
+        }
+    }catch (err) {
+        console.error('Error checking user:', error);
+        
+    }
+}
+        document.addEventListener('DOMContentLoaded', checkCurrentUser);
+
+        document.addEventListener('DOMContentLoaded', fetchUserProfile);
+    </script>
+    
+</body>
+</html>
