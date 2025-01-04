@@ -165,7 +165,7 @@ app.get('/verify-email', async(req, res) => {
 app.delete('/users/:id', async (req, res) => {
     const { id } = req.params;
     try{
-        await pool.query('DELETE FROM users WHERE id = $1', [id]);
+        await pool.query('DELETE FROM users WHERE user_id = $1', [id]);
         res.status(204).send();
     }catch (err) {
         console.error(err);
@@ -186,7 +186,7 @@ app.post('/login', async (req, res) => {
         if(user.rows.length > 0){
             const isValid = await bcrypt.compare(password, user.rows[0].password);
             if(isValid){
-                const token = jwt.sign({id: user.rows[0].id, role: user.rows[0].role }, SECRET_KEY, {expiresIn: '1h'});
+                const token = jwt.sign({user_id: user.rows[0].user_id, role: user.rows[0].role }, SECRET_KEY, {expiresIn: '1h'});
                 res.cookie('auth_token', token, {httpOnly: true});
                 res.redirect('/dashboard');
             }
@@ -283,13 +283,13 @@ app.get('/dashbaord', verifyAdmin, (req, res) => {
 app.get('/api/users', verifyAdmin, async(req, res) => {
 
     const { 
-        sortBy = 'id', 
+        sortBy = 'user_id', 
         sortOrder = 'asc',
         searchColumn = '',
         searchTerm = ''
     }= req.query;
 
-    const validColumns = ['id','first_name', 'last_name', 'username', 'email', 'role'];
+    const validColumns = ['user_id','first_name', 'last_name', 'username', 'email', 'role'];
     const validOrders = ['asc', 'desc'];
 
     if(!validColumns.includes(sortBy) || !validOrders.includes(sortOrder)){
@@ -315,13 +315,62 @@ app.get('/api/users', verifyAdmin, async(req, res) => {
     }
 })
 
+app.get('/api/requests', verifyAdmin, async(req, res) => {
+
+    const { 
+        sortBy = 'request_id', 
+        sortOrder = 'asc',
+        searchColumn = '',
+        searchTerm = ''
+    }= req.query;
+
+    const validColumns = ['request_id','title', 'album', 'author', 'genre_id', 'user_id'];
+    const validOrders = ['asc', 'desc'];
+
+    if(!validColumns.includes(sortBy) || !validOrders.includes(sortOrder)){
+        return res.status(400).json({message: 'Invalid sort parameters'});
+    }
+
+    try {
+        let query = `SELECT 
+                requests.request_id,
+                requests.title,
+                requests.album,
+                requests.author,
+                requests.release_date,
+                requests.status,
+                requests.created_at,
+                requests.url,
+                requests.user_id,
+                genre.genre_id,
+                genre.genre_name,
+                users.username FROM requests 
+                INNER JOIN genre ON requests.genre_id = genre.genre_id
+                INNER JOIN users ON requests.user_id = users.user_id `;
+        const params = [];
+
+        if(searchColumn && searchTerm){
+            query += ` WHERE ${searchColumn} ILIKE $1`;
+            params.push(`%${searchTerm}`);
+        }
+
+        query += ` ORDER BY ${sortBy} ${sortOrder}`
+
+        const result = await pool.query(query, params)
+        res.json(result.rows);
+    }catch (err) {
+        console.error('Error fetching requests: ', err);
+        res.status(500).send('Internal state error');
+    }
+})
+
 //delete endpoint button in /api/users
 
 app.delete('/api/users/:id', verifyAdmin, async(req, res) => {
     
     try{
-        const userID = req.params.id;
-        await pool.query('DELETE FROM users WHERE id = $1', [userID]);
+        const userID = req.params.user_id;
+        await pool.query('DELETE FROM users WHERE user_id = $1', [userID]);
         res.status(200).send('User deleted successfully.');
     } catch(err) {
         console.error('Error deleteing user: ',err);
@@ -364,7 +413,7 @@ app.get('/api/current-user', async (req, res) => {
 
     try{
         const decoded = jwt.verify(token, SECRET_KEY);
-        const user = await pool.query('SELECT id, first_name, last_name, username, email, role, registration_date FROM users where id = $1', [decoded.id]);
+        const user = await pool.query('SELECT user_id, first_name, last_name, username, email, role, registration_date FROM users where user_id = $1', [decoded.user_id]);
         
         if (user.rows.length > 0) {
             return res.status(200).json(user.rows[0]);
@@ -412,7 +461,7 @@ app.get('/api/users/:id', async(req, res) => {
     const { id } = req.params;
 
     try{
-        const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+        const result = await pool.query('SELECT * FROM users WHERE user_id = $1', [id]);
 
         if(result.rows.length === 0){
             return res.status(404).json({error: 'User not found'});
@@ -428,54 +477,35 @@ app.get('/api/users/:id', async(req, res) => {
 //FTP: uploading new file
 app.post('/api/requests', upload.single('file'), async (req, res) => {
     try {
-        const {
-            title,
-            album,
-            author,
-            genre,
-            release_date,
-            requester_id, // Identyfikator użytkownika wysyłającego żądanie
-        } = req.body;
+        const {title, album, author, genre, release_date, user_id} = req.body;
 
         const filePath = req.file ? req.file.path : null; // Ścieżka do pliku (jeśli przesłano)
 
         // Walidacja danych wejściowych
-        if (!title || !album || !author || !genre || !release_date || !requester_id || !filePath) {
+        if (!title || !album || !author || !genre || !release_date || !filePath) {
             return res.status(400).json({ error: 'All fields are required.' });
         }
 
         // Generowanie statusu i daty
         const status = 'Pending'; // Domyślny status
-        const createdAt = new Date(); // Data utworzenia rekordu
+        const createdAt = new Date(Date.now() + 60 * 60 * 1000); // Data utworzenia rekordu
 
         // Zapytanie SQL do zapisu danych w tabeli `requests`
-        const insertQuery = `
-            INSERT INTO requests (
+     
+            await pool.query('INSERT INTO requests (title,album,author,genre_id,release_date,user_id,status,created_at,url)VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)', [
                 title,
                 album,
                 author,
                 genre,
                 release_date,
-                requester_id,
+                user_id,
                 status,
-                created_at,
-                url
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-        `;
+                createdAt,
+                filePath,
+            ]);
 
         // Wykonanie zapytania
-        await pool.query(insertQuery, [
-            title,
-            album,
-            author,
-            genre,
-            release_date,
-            requester_id,
-            status,
-            createdAt,
-            filePath,
-        ]);
+        
 
         // Zwrot odpowiedzi
         res.status(200).json({ message: 'Request submitted successfully.' });
@@ -497,4 +527,71 @@ app.get('/api/genres', async(req, res) => {
         res.status(500).json({error: 'An error occured'})
     }
     
+})
+
+app.delete('/api/clear-requests', async(req, res) => {
+    try{
+        await pool.query('DELETE FROM requests');
+        res.status(201).send('Successfully cleared requests')
+    } catch(err) {
+        console.error('Error clearing requests', err);
+        res.status(500).send('Internal server error')
+    }
+})
+
+app.get('/api/requests/:id', async(req, res) => {
+    const { id } = req.params;
+
+    try {
+        const request = await pool.query(`SELECT requests.request_id,
+                requests.title,
+                requests.album,
+                requests.author,
+                requests.release_date,
+                requests.status,
+                requests.created_at,
+                requests.url,
+                genre.genre_id,
+                genre.genre_name FROM requests INNER JOIN genre on requests.genre_id = genre.genre_id WHERE request_id = $1`, [id]);
+
+        if(request.rows.length === 0){
+            return res.status(404).json({message: 'Request not found'});
+        }
+
+        res.status(200).json(request.rows[0]);
+    }catch (err){
+        console.error('Error fetching requests', err);
+        res.status(500).json({message: 'Server Error'});
+    }
+})
+
+app.put('/api/requests/:id', async(req, res) => {
+    const { id } = req.params;
+    const { title, album, author, genre, release_date, status} = req.body;
+
+    if( !title || !album || !author || !genre || !release_date || !status){
+        return res.status(400).json({message: 'All field are required'});
+    }
+    
+    try{
+        const result = await pool.query(`UPDATE requests SET 
+            title = $1,
+            album = $2,
+            author = $3,
+            genre_id = $4,
+            release_date = $5,
+            status = $6 where request_id = $7 RETURNING *`, [ title, album, author, genre, release_date, status, id]);
+
+            if(result.rowCount === 0) {
+                return res.status(404).json({message: 'Request not found'});
+            }
+
+            res.status(200).json({
+                message: 'Request updated successfully',
+                request: result.rows[0],
+            })
+    } catch (err){
+        console.error('Error updating request: ',err);
+        res.status(500).json({message: 'Server error'});
+    }
 })

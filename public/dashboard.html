@@ -12,7 +12,9 @@
             <ul>
                 <li><a href="/">Home</a></li>
                 <li><a href="/dashboard">Dashboard</a></li>
-                <li id="dashboard-username"><a href="">hello</a></li>
+                <li><a href="/upload-file.html">Add New Song</a></li>
+                <li id="dashboard-username"><a href="">name</a></li>
+                <li><a href="/requests.html">Song requests</a></li>
                 <li><a href="/logout">Logout</a></li>
             </ul>
         </nav>
@@ -107,7 +109,7 @@ async function checkCurrentUser(){
 }
         document.addEventListener('DOMContentLoaded', checkCurrentUser);
 
-        async function fetchUsers(sortBy = 'id', sortOrder = 'asc', searchColumn = '', searchTerm = '') {
+        async function fetchUsers(sortBy = 'user_id', sortOrder = 'asc', searchColumn = '', searchTerm = '') {
             try{
                 const response = await fetch(`/api/users?sortBy=${sortBy}&sortOrder=${sortOrder}&searchColumn=${searchColumn}&searchTerm=${searchTerm}`, {
                     method: 'GET',
@@ -125,13 +127,13 @@ async function checkCurrentUser(){
                         const row = document.createElement('tr');
 
                         row.innerHTML = `
-                        <th>${user.id}</th>
+                        <th>${user.user_id}</th>
                         <th>${user.first_name}</th>
                         <th>${user.last_name}</th>
                         <th>${user.username}</th>
                         <th>${user.email}</th>
                         <th>${user.is_verified ? 'Yes' : 'No'}</th>
-                        <th><button onclick = "showProfile(${user.id})">Show Profile</button></th>
+                        <th><button onclick = "showProfile(${user.user_id})">Show Profile</button></th>
                         `;
 
                         tableBody.appendChild(row);

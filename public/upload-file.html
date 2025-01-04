@@ -30,13 +30,12 @@
             <input type="text" id="author" name="author" required>
         
             <label for="genre">Genre:</label>
-            <input type="text" id="genre" name="genre" required>
+            <select id="genre" name="genre" required>
+                <option value="">--Select a Genre--</option>
+            </select>
         
             <label for="release_date">Release Date:</label>
             <input type="date" id="release_date" name="release_date" required>
-        
-            <label for="requester_id">Requester ID:</label>
-            <input type="number" id="requester_id" name="requester_id" required>
         
             <label for="file">Upload File:</label>
             <input type="file" id="file" name="file" required>
@@ -78,6 +77,16 @@
     const formData = new FormData(formElement); // Zbiera wszystkie pola formularza
 
     try {
+
+        const userResponse = await fetch('/api/current-user');
+        console.log(userResponse.id)
+        if(!userResponse.ok){
+            throw new Error('Failed to fetch user information');
+        }
+
+        const currentUser = await userResponse.json();
+        formData.append('user_id', currentUser.id);
+
         const response = await fetch('/api/requests', {
             method: 'POST',
             body: formData,
