@@ -68,6 +68,7 @@ app.listen(PORT, () => {
 //połączenie z baza + sprawdzenie połączenia
 const pool = require('./db');
 const { register } = require('module');
+const { json } = require('stream/consumers');
 
 app.get('/db-test', async (req, res) => {
     try{
@@ -492,7 +493,7 @@ app.post('/api/requests', upload.single('file'), async (req, res) => {
 
         // Zapytanie SQL do zapisu danych w tabeli `requests`
      
-            await pool.query('INSERT INTO requests (title,album,author,genre_id,release_date,user_id,status,created_at,url)VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)', [
+            await pool.query('INSERT INTO requests (title,album,author,genre_id,release_date,user_id,status,created_at,url) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9)', [
                 title,
                 album,
                 author,
@@ -552,7 +553,10 @@ app.get('/api/requests/:id', async(req, res) => {
                 requests.created_at,
                 requests.url,
                 genre.genre_id,
-                genre.genre_name FROM requests INNER JOIN genre on requests.genre_id = genre.genre_id WHERE request_id = $1`, [id]);
+                genre.genre_name
+                FROM requests 
+                INNER JOIN genre on requests.genre_id = genre.genre_id 
+                WHERE request_id = $1`, [id]);
 
         if(request.rows.length === 0){
             return res.status(404).json({message: 'Request not found'});
@@ -652,11 +656,11 @@ app.post('/api/add-album', async (req, res) => {
 })
 
 app.post('/api/add-song', async(req, res) => {
-    const { title, albumId, authorId, releaseDate, genreId, url} = req.body;
+    const { title, album_id, author_id, release_date, genre_id, url} = req.body;
 
     try{
-        const result = await pool.query('INSERT INTO songs (title, album_id, author_id, release_date, genre_id, url) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
-            [title, albumId, authorId, releaseDate, genreId, url]
+        const result = await pool.query('INSERT INTO song (title, album_id, author_id, release_date, genre_id, url) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
+            [title, album_id, author_id, release_date, genre_id, url]
         );
 
         res.status(200).json(result.rows[0]);
@@ -665,3 +669,50 @@ app.post('/api/add-song', async(req, res) => {
         res.status(500).json({message: 'Server error'});
     }
 })
+
+app.get('/api/request-count', async(req, res) => {
+    try{
+        const result = await pool.query(`SELECT COUNT('request_id') FROM requests WHERE status = 'Pending'`);
+        res.status(200).json(result.rows);
+    }catch (err){
+        console.error('Faild to count requests' ,err);
+        res.status(500).json({message: 'Server error'});
+    }
+})
+
+app.get('/api/albums/:album_name', async(req, res) => {
+    const { album_name } = req.params;
+    try{
+        const result = await pool.query('SELECT * FROM album WHERE album_name = $1', [album_name]);
+        if(result.rows.length === 0){
+            return res.status(404).json({error: 'album not found'});
+        }
+
+        res.status(200).json(result.rows[0]);
+        
+    }catch (err){
+        console.error('Failed finding album', err);
+        res.status(500).json({message: 'Server error'});
+    }
+})
+
+app.post('/api/songs/check', async ( req, res) => {
+    const { title, album_id } = req.body;
+
+    try{
+        const songExists = await pool.query(
+            'SELECT 1 FROM song WHERE title = $1 AND album_id = $2',
+            [ title, album_id]
+        );
+
+        if (songExists.rows.length > 0) {
+            return res.status(200).json({ exists: true});
+        }
+
+        res.status(200).json({exists: false});
+    } catch(err){
+        console.error('Error checking song:', err);
+        res.status(500).json({message: 'Server Error'});
+    }
+})
+

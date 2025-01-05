@@ -79,13 +79,12 @@
     try {
 
         const userResponse = await fetch('/api/current-user');
-        console.log(userResponse.id)
         if(!userResponse.ok){
             throw new Error('Failed to fetch user information');
         }
 
         const currentUser = await userResponse.json();
-        formData.append('user_id', currentUser.id);
+        formData.append('user_id', currentUser.user_id);
 
         const response = await fetch('/api/requests', {
             method: 'POST',
