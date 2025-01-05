@@ -595,3 +595,73 @@ app.put('/api/requests/:id', async(req, res) => {
         res.status(500).json({message: 'Server error'});
     }
 })
+
+
+app.get('/api/check-album-author', async (req, res) => {
+    const { albumName, authorName } = req.query;
+
+    try {
+        const authorResult = await pool.query('SELECT * FROM author WHERE author_name = $1', [ authorName ]);
+        const authorExists = authorResult.rows.length > 0 ? authorResult.rows[0] : null;
+
+
+        const albumResult = await pool.query('SELECT * FROM album WHERE album_name = $1 AND author_id = $2', [
+            albumName,
+            authorExists ? authorExists.author_id : null
+        ]);
+        const albumExists = albumResult.rows.length > 0 ? albumResult.rows[0] : null;
+
+        res.status(200).json({ albumExists, authorExists });
+    }catch (err){
+        console.error('Error checking album and author: ',err);
+        res.status(500).json({ message: 'Server error'});
+    }
+})
+
+app.get('add-album-author-form', async (req, res) => {
+    const { albumName, authorName, authorExists, albumExists } = req.params;
+    res.render('add-album-author-form', {albumName, authorName, authorExists, albumExists});
+})
+
+app.post('/api/add-author', async (req, res) => {
+    const { author_name } = req.body;
+
+    try{
+        const result = await pool.query('INSERT INTO author (author_name) VALUES ($1) RETURNING *', [ author_name ]);
+
+        res.status(200).json(result.rows[0]);
+    } catch (err) {
+        console.error('Error adding author', err);
+        res.status(500).json({message: 'Server error'});
+    }
+})
+
+app.post('/api/add-album', async (req, res) => {
+    const { album_name, release_date, genre_id, author_id } = req.body;
+
+    try{
+        const result = await pool.query('INSERT INTO album (album_name, release_date, genre_id, author_id) VALUES ($1,$2,$3,$4) RETURNING *',
+        [ album_name, release_date, genre_id, author_id ]
+    );
+
+    res.status(200).json(result.rows[0]);
+    } catch (err) {
+        console.error('Error adding album: ',err);
+        res.status(500).json({message: 'Server Error'});
+    }
+})
+
+app.post('/api/add-song', async(req, res) => {
+    const { title, albumId, authorId, releaseDate, genreId, url} = req.body;
+
+    try{
+        const result = await pool.query('INSERT INTO songs (title, album_id, author_id, release_date, genre_id, url) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
+            [title, albumId, authorId, releaseDate, genreId, url]
+        );
+
+        res.status(200).json(result.rows[0]);
+    } catch (err){
+        console.error('Error adding song: ', err);
+        res.status(500).json({message: 'Server error'});
+    }
+})

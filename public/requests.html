@@ -61,6 +61,31 @@
                         <th>Action</th>
                     </tr>
                 </thead>
+                <div id="dynamic-form-container" style="display: none;">
+                    <form id="dynamic-form">
+                        <div id="new-author-section" style="display: none;">
+                            <h3>Add Author</h3>
+                            <label for="dynamic-author-name">Author Name:</label>
+                            <input type="text" id="dynamic-author-name" name="dynamic-author-name">
+                        </div>
+                
+                        <div id="new-album-section" style="display: none;">
+                            <h3>Add Album</h3>
+                            <label for="dynamic-album-name">Album Name:</label>
+                            <input type="text" id="dynamic-album-name" name="dynamic-album-name">
+                            <label for="dynamic-release-date">Release Date:</label>
+                            <input type="date" id="dynamic-release-date" name="dynamic-release-date">
+                            <label for="dynamic-genre-id">Genre:</label>
+                            <select id="dynamic-genre-id" name="dynamic-genre-id">
+                                <!-- Populate genres dynamically -->
+                            </select>
+                            <input type="hidden" id="dynamic-author-id" name="dynamic-author-id">
+                        </div>
+                
+                        <button type="submit">Submit</button>
+                    </form>
+                </div>
+                
                 <tbody>
                     <div id="edit-request-container" style="display: none;">
                         <h2>Edit Request</h2>
@@ -74,8 +99,10 @@
                             <label for="edit-author">Author:</label>
                             <input type="text" id="edit-author" name="author" required>
 
-                            <label for="edit-genre">Genre:</label>
-                            <input type="text" id="edit-genre" name="genre" required>
+                            <label for="genre">Genre:</label>
+                            <select id="edit-genre" name="genre" required>
+                                <option value="">--Select a Genre--</option>
+                            </select>
 
                             <label for="edit-release-date">Release Date:</label>
                             <input type="date" id="edit-release-date" name="release_date" required>
@@ -88,6 +115,7 @@
                             </select>
 
                             <button type="submit">Save Changes</button>
+                            <button id="check-album-author">Check album and author</button>
                             <button type="button" id="cancel-edit">Cancel</button>
                         </form>
                     </div>
@@ -153,7 +181,7 @@ async function checkCurrentUser(){
                 document.getElementById('edit-title').value = request.title;
                 document.getElementById('edit-album').value = request.album;
                 document.getElementById('edit-author').value = request.author;
-                document.getElementById('edit-genre').value = request.genre;
+                document.getElementById('edit-genre').option = request.genre_id;
                 document.getElementById('edit-release-date').value = request.release_date;
                 document.getElementById('edit-status').value = request.status;
 
@@ -178,32 +206,138 @@ async function checkCurrentUser(){
                 genre: document.getElementById('edit-genre').value,
                 release_date: document.getElementById('edit-release-date').value,
                 status: document.getElementById('edit-status').value,
+            };
+
+            
+
+            await checkAlbumAndAuthor(updatedRequest.album, updatedRequest.author, requestId);
+})
+
+    async function checkAlbumAndAuthor(albumName, authorName, requestId) {
+             try {
+                const response = await fetch(`/api/check-album-author?albumName=${encodeURIComponent(albumName)}&authorName=${encodeURIComponent(authorName)}`);
+                const { albumExists, authorExists } = await response.json();
+
+                if(!authorExists || !albumExists){
+                    openDynamicForm(albumName, authorName, albumExists, authorExists, requestId);    
+                } else{
+                        await updateRequest(requestId);
+                    }
+                
+             } catch(err){
+                console.error('Error in checking album and author' ,err);
+             }
+        }
+
+        document.getElementById('cancel-edit').addEventListener('click', () => {
+            document.getElementById('edit-request-container').style.display = 'none';
+        })
+
+        function openDynamicForm(albumName, authorName, albumExists, authorExists, requestId){
+            const dynamicFormContainer = document.getElementById('dynamic-form-container');
+            dynamicFormContainer.style.display = 'block';
+
+            if(!authorExists) {
+                document.getElementById('new-author-section').style.display = 'block';
+                document.getElementById('dynamic-author-name').value = authorName;
+            }else {
+                document.getElementById('dynamic-author-id').value = authorExists.author_id;
             }
+
+            if(!albumExists){
+                document.getElementById('new-album-section').style.display = 'block';
+                document.getElementById('dynamic-album-name').value = albumName;
+            } 
+
+            document.getElementById('dynamic-form').addEventListener('submit', async (event) => {
+                event.preventDefault();
+
+                try{
+                    let authorId = document.getElementById('dynamic-author-id').value;
+                    let albumId = null;
+
+                    if(!authorExists) {
+                        const authorResponse = await fetch('/api/add-author', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                author_name: document.getElementById('dynamic-author-name').value
+                            })
+                        });
+
+                        if(!authorResponse.ok){
+                            throw new Error('Failed to add author');
+                        }
+
+                        const authorData = await authorResponse.json();
+                        authorId = authorData.author_id;
+                        document.getElementById('dynamic-author-id').value = authorId;
+                        console.log('Author added successfully');
+                        
+                    }
+
+                    
+
+                    if(!albumExists) {
+                        await new Promise((resolve) => setTimeout(resolve, 3000));
+                        const albumResponse = await fetch('/api/add-album', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                album_name: document.getElementById('dynamic-album-name').value,
+                                release_date: document.getElementById('dynamic-release-date').value,
+                                genre_id: document.getElementById('dynamic-genre-id').value,
+                                author_id: document.getElementById('dynamic-author-id').value
+                            }),
+                        });
+                        const albumData = await albumResponse.json();
+                        albumId = albumData.album_id;
+                    }
+
+                    await updateRequest(requestId);
+                    dynamicFormContainer.style.display = 'none';
+
+                }catch (err){
+                    console.error('Error submiting dynamic form', err)
+                }
+            });
+        }
+
+        async function updateRequest(requestId){
+            const updatedRequest = {
+                title: document.getElementById('edit-title').value,
+                album: document.getElementById('edit-album').value,
+                author: document.getElementById('edit-author').value,
+                genre: document.getElementById('edit-genre').value,
+                release_date: document.getElementById('edit-release-date').value,
+                status: document.getElementById('edit-status').value,
+            };
 
             try{
                 const response = await fetch(`/api/requests/${requestId}`, {
                     method: 'PUT',
                     headers: {
-                        'Content-Type': 'application/json',
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify(updatedRequest),
-                })
-                if(response.ok){
-                    alert('Request updated successfully.');
-                    fetchRequests();
-                    document.getElementById('edit-request-container').style.display = 'none';
-                } else { 
-                    throw new Error ('Failed to update request');
-                }
-            } catch(err){
-                console.error('Error saving changes: ',err);
-                alert('An error occurred while saving changes');
-            }
-        })
+                });
 
-        document.getElementById('cancel-edit').addEventListener('click', () => {
-            document.getElementById('edit-request-container').style.display = 'none';
-        })
+                if(response.ok){
+                    alert('Request updated successfully');
+                    fetchRequests();
+                    document.getElementById('edit-request-container').style.disaply = 'none';
+                } else {
+                    throw new Error('Failed to update requests');
+                }
+            } catch (err) {
+                console.error('Error saving changes', err);
+                alert('An error occured while saving the changes');
+            }
+        }
 
         async function fetchRequests(sortBy = 'request_id', sortOrder = 'asc', searchColumn = '', searchTerm = '') {
             try{
@@ -221,7 +355,6 @@ async function checkCurrentUser(){
                     tableBody.innerHTML = '';
 
                     requests.forEach(request => {
-                        console.log(request);
                         const row = document.createElement('tr');
 
                         row.innerHTML = `
@@ -246,28 +379,7 @@ async function checkCurrentUser(){
                 console.error('Error fetching requests:',err);
             }
         }
-        async function deleteUser(userID) { 
-            if(!confirm('Are you sure you want to delete this user?')) return;
-
-            try{
-                const response = await fetch(`/api/users/${userID}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
-
-                if(response.ok){
-                    alert('User delete Successfully');
-                    applySort();
-                }else {
-                    alert('Falied to delete user');
-                }
-            }catch (err) {
-                console.error('Error deleting user:', err);
-                alert('An error occured');
-            }
-        }
+        
 
         document.getElementById('apply-sort').addEventListener('click', () => {
             const sortBy = document.getElementById('sort-users').value;
@@ -292,6 +404,62 @@ async function checkCurrentUser(){
             fetchRequests(sortBy, sortOrder, searchColumn, searchTerm);  
         }
 
+        async function fetchGenres() {
+            try {
+                const response = await fetch('/api/genres');
+                if (response.ok) {
+                    const genres = await response.json();
+                    const genreSelect = document.getElementById('edit-genre');
+
+                    genres.forEach(genre => {
+                        const option = document.createElement('option');
+                        option.value = genre.genre_id;
+                        option.textContent = genre.genre_name;
+                        genreSelect.appendChild(option);
+                    });
+                } else {
+                    console.error('Failed to fetch genres');
+                }
+            } catch (err) {
+                console.error('Error fetching genres:', err);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', fetchGenres);
+
+        async function fetchGenresAlbum() {
+            try {
+                const response = await fetch('/api/genres');
+                if (response.ok) {
+                    const genres = await response.json();
+                    const genreSelect = document.getElementById('dynamic-genre-id');
+
+                    genres.forEach(genre => {
+                        const option = document.createElement('option');
+                        option.value = genre.genre_id;
+                        option.textContent = genre.genre_name;
+                        genreSelect.appendChild(option);
+                    });
+                } else {
+                    console.error('Failed to fetch genres');
+                }
+            } catch (err) {
+                console.error('Error fetching genres:', err);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', fetchGenresAlbum);
+
+
+        
+        
+
+        document.getElementById('check-album-author').addEventListener('click', () => {
+            
+            const albumName = document.getElementById('edit-album').value;
+            const authorName = document.getElementById('edit-author').value;
+            checkAlbumAndAuthor(albumName, authorName);
+        })
         
     </script>
 </body>
