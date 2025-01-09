@@ -475,12 +475,19 @@ app.get('/api/users/:id', async(req, res) => {
     }
 })
 
+const allowedMimeType = ['audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp3'];
+
 //FTP: uploading new file
 app.post('/api/requests', upload.single('file'), async (req, res) => {
     try {
         const {title, album, author, genre, release_date, user_id} = req.body;
 
         const filePath = req.file ? req.file.path : null; // Ścieżka do pliku (jeśli przesłano)
+        const fileMimeType = req.file ? req.file.mimetype : null;
+
+        if(!filePath || !allowedMimeType.includes(fileMimeType)){
+            return res.status(400).json({error: 'Inalid file type. Only audio files are allowed!'})
+        }
 
         // Walidacja danych wejściowych
         if (!title || !album || !author || !genre || !release_date || !filePath) {
@@ -715,4 +722,3 @@ app.post('/api/songs/check', async ( req, res) => {
         res.status(500).json({message: 'Server Error'});
     }
 })
-

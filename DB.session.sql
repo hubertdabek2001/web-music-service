@@ -14,3 +14,5 @@ VALUES (
     'albert',
     'polski'
   );
+
+  ALTER TABLE new_playlist ADD 

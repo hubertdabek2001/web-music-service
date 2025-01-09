@@ -33,6 +33,10 @@
             <button onclick="location.href='/login'">Login</button>
             <button onclick="location.href='/register'">Register</button>
         </div>
+        <button id="playlist-button" onclick="newPlaylistForm()" style="display: none;">New Playlist</button>
+        <div id="playlists-holder">
+
+        </div>
     </main>
     <script>
         async function checkCurrentUser(){
@@ -58,6 +62,8 @@
             document.getElementById('dashboard-link').style.display = user.role === 'admin' ? 'inline' : 'none';
             document.getElementById('upload-file').style.display = 'inline';
             document.getElementById('logout-link').style.display = 'inline';
+
+            document.getElementById('playlist-button').style.display = 'block';
         }else {
             document.getElementById('auth-buttons').style.display = 'block';
             document.getElementById('login-link').style.display = 'inline';
@@ -71,6 +77,10 @@
     }
 }
 document.addEventListener('DOMContentLoaded', checkCurrentUser);
+
+    function newPlaylistForm(){
+        window.location.href = '/new-playlist.html';
+    }
     </script>
 </body>
 </html>
