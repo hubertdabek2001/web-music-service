@@ -722,3 +722,68 @@ app.post('/api/songs/check', async ( req, res) => {
         res.status(500).json({message: 'Server Error'});
     }
 })
+
+app.get('/api/songs/:song_id', async (req, res) => {
+    const { song_id } = req.params;
+
+    try{
+        const songQuery = await pool.query('SELECT * FROM song WHERE song_id = $1', [song_id]);
+
+        if(songQuery.rows.length === 0 ){
+            return res.status(404).json({error: 'Song not found'});
+        }
+        
+        const song  = songQuery.rows[0];
+        const filename = song.filename;
+        const ftpPath = song.url;
+
+
+        const localFilePath = path.join(__dirname, 'temp', filename);
+
+        const client = new ftp.Client();
+        client.ftp.verbose = true;
+
+        await client.access({
+            host:FTP_HOST,
+            user:FTP_USER,
+            password:FTP_PASSWORD,
+            secure: false
+        });
+
+        await client.downloadTo(localFilePath, ftpPath);
+        client.close();
+
+        res.setHeader('Content-Type', 'audio/mpeg');
+        const readStream = fs.createReadStream(localFilePath);
+
+        readStream.on('open', () =>{
+            readStream.pipe(res);
+        })
+
+        readStream.on('error', (err) =>{
+            console.error('Error stream the file: ',err);
+            res.status(500).json({error: 'Failed to stream file'});
+        });
+
+        readStream.on('close', () => {
+            fs.unlink(lovalFilePath, (err) => {
+                if (err){
+                    console.error('Error deleting temporary file: ', err);
+                };
+            });
+        });
+    } catch (err) {
+        console.error('Error fetching song: ', err);
+        res.status(500).json({error: 'Internal server error'});
+    }
+});
+
+app.get('/api/songs', async (req, res) => {
+    try{
+        const songs = await pool.query('SELECT song_id, title FROM song');
+        res.status(200).json(songs.rows);
+    } catch (err) {
+        console.error('Error fetching songs: ',err);
+        res.status(500).json({error: 'Internal server error'});
+    }
+})
