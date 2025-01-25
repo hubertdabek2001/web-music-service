@@ -1084,3 +1084,124 @@ app.get('/api/search/songs/', async (req, res) => {
         res.status(500).json({message: 'Internal state error'});
     }
 })
+
+app.get('/api/playlists/:playlistId/songs', async (req, res) => {
+    const { playlistId } = req.params;
+    try {
+      const sql = `
+        SELECT s.song_id,
+               s.title,
+               a.author_name
+          FROM song s
+          JOIN playlist p ON s.song_id = p.song_id
+          JOIN author a ON s.author_id = a.author_id
+         WHERE p.playlist_id = $1
+      `;
+      const { rows } = await pool.query(sql, [playlistId]);
+  
+      if (rows.length === 0) {
+        return res.status(404).json({ message: 'No songs found in this playlist' });
+      }
+      res.status(200).json(rows);
+    } catch (error) {
+      console.error('Error fetching playlist songs:', error);
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+  
+
+  app.get('/api/playlists/:playlistId/stream', async (req, res) => {
+    const { playlistId } = req.params;
+    const { songId } = req.query; // ?songId=123
+  
+    try {
+      // Zapytanie pobierające KONKRETNĄ piosenkę z danej playlisty
+      const playlistSongsQuery = await pool.query(
+        `SELECT s.song_id, s.title, s.url
+           FROM song s
+           JOIN playlist p ON s.song_id = p.song_id  -- lub playlist_songs p
+          WHERE p.playlist_id = $1
+            AND s.song_id = $2;`,
+        [playlistId, songId]
+      );
+  
+      if (playlistSongsQuery.rows.length === 0) {
+        return res.status(404).json({ error: 'Song not found in this playlist' });
+      }
+  
+      // Zakładamy, że kolumna "url" przechowuje np. pełny link do pliku w S3
+      const song = playlistSongsQuery.rows[0];
+  
+      // --- Przykład: streaming z S3 (Amazon) do klienta ---
+      // Zakładamy, że w "song.url" jest np. "https://my-bucket.s3.amazonaws.com/folder/track.mp3"
+      // i masz już skonfigurowane połączenie z S3.
+      const s3Key = song.url.split('.com/')[1]; 
+      // ... pobierasz bucketName z configu ...
+      
+      const getObjectParams = {
+        Bucket: bucketName,
+        Key: s3Key
+      };
+      const command = new GetObjectCommand(getObjectParams);
+      const s3Response = await s3.send(command);
+  
+      // Ustaw nagłówek, że to plik audio
+      res.setHeader('Content-Type', 'audio/mpeg');
+  
+      // Strumieniowo przekazujemy dane z S3 do odpowiedzi
+      s3Response.Body.pipe(res);
+  
+      s3Response.Body.on('error', (err) => {
+        console.error('Error streaming file from S3:', err);
+        res.status(500).json({ error: 'Failed to stream file' });
+      });
+  
+      // Po zakończeniu strumienia
+      s3Response.Body.on('end', () => {
+        console.log('Streaming completed for songId:', songId);
+      });
+  
+    } catch (err) {
+      console.error('Error streaming playlist songs:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+  
+
+  app.post('/api/playlists/:playlistId/songs', async (req, res) => {
+    const { playlistId } = req.params; // Pobierz ID playlisty z URL
+    const { song_id } = req.body; // Pobierz ID piosenki z treści żądania
+
+    if (!song_id) {
+        return res.status(400).json({ message: 'Song ID is required' });
+    }
+
+    try {
+        // Sprawdź, czy playlista istnieje
+        const playlistExists = await pool.query(
+            'SELECT * FROM new_playlist WHERE playlist_id = $1',
+            [playlistId]
+        );
+
+        if (playlistExists.rows.length === 0) {
+            return res.status(404).json({ message: 'Playlist not found' });
+        }
+
+        // Dodaj piosenkę do playlisty
+        const addSongQuery = `
+            INSERT INTO playlist (playlist_id, song_id)
+            VALUES ($1, $2)
+            RETURNING *;
+        `;
+
+        const result = await pool.query(addSongQuery, [playlistId, song_id]);
+
+        res.status(201).json({
+            message: 'Song added to playlist successfully',
+            song: result.rows[0],
+        });
+    } catch (err) {
+        console.error('Error adding song to playlist:', err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+});

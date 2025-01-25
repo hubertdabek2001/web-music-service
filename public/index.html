@@ -21,16 +21,27 @@
         </nav>
     </header>
     <main>
-        <div id="search-container">
+
+        <!-- Modal do dodawania piosenek do playlisty -->
+<div id="addPlaylistModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <span class="close" id="closeAddPlaylistModal">&times;</span>
+      <h2>Wybierz playlistę</h2>
+      <!-- Kontener, w którym wyświetlimy playlisty -->
+      <div id="userPlaylistsContainer"></div>
+    </div>
+  </div>
+  
+
+        <div id="live-search-container">
             <input 
                 type="text" 
-                id="song-search-input" 
+                id="live-search-input" 
                 placeholder="Search by title, album, or author..." 
             />
-            <button id="song-search-button">Search</button>
+            <div id="live-search-results"></div>
         </div>
         
-        <div id="search-results"></div>
         <h1>Welcome to the Music Listen app</h1>
         <div id="user-info" style="display: none;">
             <h2>User Information</h2>
@@ -53,6 +64,8 @@
         </div>
     </main>
     <script>
+        let currentUserId = null;
+
         async function checkCurrentUser(){
     try{
         const response = await fetch('/api/current-user', {
@@ -82,8 +95,8 @@
             
             document.getElementById('playlists_containter').style.display = 'block';
             document.getElementById('playlist-h1').style.display = 'block';
-            
-            fetchPlaylists(user.user_id)
+            currentUserId = user.user_id;
+            fetchPlaylists(currentUserId)
         }else {
             document.getElementById('auth-buttons').style.display = 'block';
             document.getElementById('login-link').style.display = 'inline';
@@ -103,26 +116,54 @@
     }
 
     async function fetchPlaylists(userId) {
-        try {
-            const response = await fetch(`/api/user/playlists?user_id=${userId}`, {
-                method: 'GET',
-                credentials: 'include',
-            });
+    try {
+        const response = await fetch(`/api/user/playlists?user_id=${userId}`, {
+            method: 'GET',
+            credentials: 'include',
+        });
 
-            if(response.ok){
-                const playlists = await response.json();
-                displayPlaylists(playlists);
-            }else {
-                console.error('Failed to fetch user playlists');
-                document.getElementById('playlist-info').innerHTML = 'No playlists';
-            }
-            
-        } catch (err) {
-            console.error('Error fetching playlists', err);
+        if (response.ok) {
+            const playlists = await response.json();
+            displayPlaylists(playlists);
+        } else {
+            console.error('Failed to fetch user playlists');
+            document.getElementById('playlist-info').innerHTML = 'No playlists';
         }
+        
+    } catch (err) {
+        console.error('Error fetching playlists', err);
     }
-    function displayPlaylists(playlists){
-        const container = document.getElementById('playlists_containter');
+}
+
+function displayPlaylists(playlists) {
+    const container = document.getElementById('playlists_containter');
+    container.innerHTML = '';
+
+    playlists.forEach((playlist) => {
+        const playlistDiv = document.createElement('div');
+        playlistDiv.className = 'playlist';
+
+        playlistDiv.innerHTML = `
+            <h3>${playlist.playlist_name}</h3>
+            <p>${playlist.playlist_description}</p>
+
+            <button onclick="fetchSongs(${playlist.playlist_id})">Show Songs</button>
+            <button onclick="deletePlaylist(${playlist.playlist_id})">Delete Playlist</button>
+
+            <!-- Link do player.html z przekazaniem ID playlisty w parametrze -->
+            <a href="player.html?playlistId=${playlist.playlist_id}">Go to Player</a>
+
+            <div id="songs-${playlist.playlist_id}" class="song-list"></div>
+        `;
+
+        container.appendChild(playlistDiv);
+    });
+}
+
+
+
+    function displayPlaylistsModal(playlists){
+        const container = document.getElementById('playlist-container');
         container.innerHTML = '';
 
         playlists.forEach((playlist) => {
@@ -185,23 +226,191 @@
         alert('An error occured while searching for songs');
     }
 }
+
+const searchResults = document.getElementById('live-search-results');
+    const searchContainer = document.getElementById('live-search-container');
+
+    // Funkcja, która zamknie wyniki wyszukiwania
+    function closeSearchResults() {
+        searchResults.style.display = 'none'; // Ukrywa wyniki
+    }
+
+    document.addEventListener('click', function(event) {
+        // Sprawdzenie, czy kliknięto poza kontenerem wyszukiwania
+        if (!searchContainer.contains(event.target)) {
+            closeSearchResults(); // Zamknij wyniki wyszukiwania
+        }
+    });
+
+    const searchInput = document.getElementById('live-search-input');
+    searchInput.addEventListener('input', function() {
+        if (searchInput.value.trim() !== "") {
+            searchResults.style.display = 'block'; // Pokazuje wyniki wyszukiwania
+            // Tutaj możesz dodać logikę dynamicznego wyszukiwania
+        } else {
+            closeSearchResults(); // Zamknięcie wyników, jeśli pole wyszukiwania jest puste
+        }
+    });
+
+let searchTimeout;
+
+
+
+searchContainer.addEventListener('input', async (event) => {
+    const query = event.target.value.trim();
+    
+    if(searchTimeout){
+        clearTimeout(searchTimeout);
+    }
+
+    if(query === ''){
+        document.getElementById('live-search-results').innerHTML = '';
+        return;
+    }
+
+    searchTimeout = setTimeout(async () => {
+        try{
+            const response = await fetch(`/api/search/songs?query=${encodeURIComponent(query)}`);
+
+            if(response.ok) {
+                const songs = await response.json();
+                displaySearchResult(songs);
+            } else if (response.status === 404){
+                document.getElementById('live-search-results').innerHTML = '<p>No songs found</p>';
+            }else {
+            throw new Error('Failed to fetch search results');
+        }  
+    } catch (err) {
+        console.error('Error searching for songs:', err);
+        alert('An error occured while searching for songs');
+    }
+    })
+})
+
 function displaySearchResult(songs) {
-    const resultsContainer = document.getElementById('search-results');
+    const resultsContainer = document.getElementById('live-search-results');
     resultsContainer.innerHTML = '';
 
     songs.forEach(song => {
         const songElement = document.createElement('div');
+        songElement.className = 'song';
+        songElement.id = 'song-'+song.song_id;
         songElement.innerHTML = `
             <h3>${song.title}</h3>
             <p><strong>Album:</strong> ${song.album_name || 'N/A'}</p>
             <p><strong>Author:</strong> ${song.author_name || 'N/A'}</p>
-            <p><strong>Genre:</strong> ${song.genre_name || 'N/A'}</p>
-            <p><strong>Release Date:</strong> ${song.release_date}</p>
+            
+            <button class="add-to-playlist-button" onclick="showAddToPlaylistModal(${song.song_id}, ${currentUserId})">Add to playlist</button>
         `;
         resultsContainer.appendChild(songElement);
     })
 }
-document.getElementById('song-search-button').addEventListener('click', searchSongs);
+
+
+const addPlaylistModal = document.getElementById('addPlaylistModal');
+const closeAddPlaylistModalBtn = document.getElementById('closeAddPlaylistModal');
+
+async function showAddToPlaylistModal(songId, userId) {
+    try {
+        // Pobierz playlisty użytkownika
+        const response = await fetch(`/api/user/playlists?user_id=${userId}`, {
+            method: 'GET',
+            credentials: 'include'
+        });
+        
+        if (!response.ok) {
+            throw new Error('Błąd podczas pobierania playlist użytkownika');
+        }
+        closeSearchResults(); 
+        const playlists = await response.json();
+
+        // Wyświetl playlisty w modalu
+        displayUserPlaylistsInModal(playlists, songId);
+
+        // Pokaż modal
+        addPlaylistModal.style.display = 'block';
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+
+function displayUserPlaylistsInModal(playlists, songId) {
+    const userPlaylistsContainer = document.getElementById('userPlaylistsContainer');
+    userPlaylistsContainer.innerHTML = ''; // Wyczyść poprzednią zawartość
+
+    if (!playlists.length) {
+        userPlaylistsContainer.innerHTML = '<p>Nie masz jeszcze żadnych playlist.</p>';
+        return;
+    }
+
+    // Tworzymy listę/elementy z playlistami
+    playlists.forEach((playlist) => {
+        const playlistDiv = document.createElement('div');
+        playlistDiv.classList.add('modal-playlist-item'); 
+        playlistDiv.innerHTML = `
+            <strong>${playlist.playlist_name}</strong> 
+            <p>${playlist.playlist_description || ''}</p>
+            <button>Dodaj do tej playlisty</button>
+        `;
+
+        // Po kliknięciu "Dodaj do tej playlisty" wywołujemy funkcję POST
+        const addButton = playlistDiv.querySelector('button');
+        addButton.addEventListener('click', async () => {
+            await addSongToPlaylist(playlist.playlist_id, songId);
+        });
+
+        userPlaylistsContainer.appendChild(playlistDiv);
+    });
+}
+
+
+async function addSongToPlaylist(playlistId, songId) {
+    try {
+        const response = await fetch(`/api/playlists/${playlistId}/songs`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            credentials: 'include',
+            body: JSON.stringify({ 
+                // Zakładamy, że API oczekuje np. { "song_id": 123 }
+                song_id: songId 
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Nie udało się dodać piosenki do playlisty');
+        }
+
+        // Możesz wstawić tu dowolną logikę: powiadomienie o sukcesie, zamknięcie modala itd.
+        const result = await response.json();
+        console.log('Dodano piosenkę do playlisty:', result);
+
+        // Na przykład zamknięcie modala i/lub wyświetlenie komunikatu
+        closeAddPlaylistModal();
+        alert(`Pomyślnie dodano piosenkę do playlisty o ID: ${playlistId}`);
+    } catch (error) {
+        console.error(error);
+        alert('Wystąpił błąd podczas dodawania piosenki do playlisty.');
+    }
+}
+
+/**
+ * Zamknięcie modala
+ */
+
+closeAddPlaylistModalBtn.addEventListener('click', closeAddPlaylistModal);
+
+function closeAddPlaylistModal() {
+    addPlaylistModal.style.display = 'none';
+}
+
+window.addEventListener('click', function(event) {
+    if (event.target === addPlaylistModal) {
+        closeAddPlaylistModal();
+    }
+});
 
 
     </script>

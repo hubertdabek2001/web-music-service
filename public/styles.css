@@ -89,37 +89,93 @@ iframe#audio-player-frame {
     border: none;
 }
 
-#search-container {
-    margin: 20px 0;
-    display: flex;
-    gap: 10px;
+#live-search-container {
+    position: relative;
+    width: 300px;
+    margin: 20px auto;
 }
 
-#song-search-input {
-    width: 300px;
+#live-search-input {
+    width: 100%;
     padding: 10px;
     font-size: 16px;
     border: 1px solid #ccc;
     border-radius: 4px;
 }
 
-#song-search-button {
-    padding: 10px 15px;
-    font-size: 16px;
-    background-color: #007bff;
-    color: white;
-    border: none;
+#live-search-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #ccc;
     border-radius: 4px;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 10;
+}
+
+.live-search-item {
+    padding: 10px;
+    border-bottom: 1px solid #ddd;
     cursor: pointer;
 }
 
-#song-search-button:hover {
-    background-color: #0056b3;
+.live-search-item:hover {
+    background: #f1f1f1;
 }
 
-#search-results {
-    margin-top: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+.live-search-item:last-child {
+    border-bottom: none;
+}
+
+/* Modal */
+.modal {
+    display: none; /* Ukryty na początku */
+    position: fixed;
+    z-index: 1; /* Na wierzchu */
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.4); /* Ciemne tło */
+    overflow: auto;
+    padding-top: 60px;
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 5% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%;
+    max-width: 500px;
+}
+
+.close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+}
+
+.close:hover,
+.close:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.playlist-option {
+    padding: 10px;
+    margin: 5px;
+    background-color: #f0f0f0;
+    border: 1px solid #ccc;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+.playlist-option:hover {
+    background-color: #ddd;
 }
