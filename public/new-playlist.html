@@ -35,6 +35,8 @@
     </main>
 
     <script>
+        let currentUser = null;
+
         async function checkCurrentUser() {
             try{
                 const respone = await fetch('/api/current-user', {
@@ -48,6 +50,7 @@
 
                 if(respone.ok){
                     const user = await respone.json();
+                    currentUser = user.user_id;
                     document.getElementById('playlist-name').style.display = 'block';
                     document.getElementById('playlist-description').style.display = 'block';
 
@@ -72,6 +75,46 @@
         
 
         document.addEventListener('DOMContentLoaded', checkCurrentUser);
+
+        document.getElementById('new-playlist-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      // Pobierz dane z formularza
+      const playlist_name = document.getElementById('playlist-name').value;
+      const playlist_description = document.getElementById('playlist-description').value;
+      
+
+      // Utwórz obiekt żądania
+      const newPlaylist = {
+        playlist_name,
+        playlist_description,
+        user_id: currentUser
+      };
+
+      try {
+        // Wyślij żądanie POST do API
+        const response = await fetch('/api/playlists', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(newPlaylist)
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          alert(`Playlist created successfully! Playlist ID: ${data.playlist_id}`);
+          document.getElementById('new-playlist-form').reset();
+          window.location.href = '/';
+        } else {
+          const error = await response.json();
+          alert(`Failed to create playlist: ${error.message}`);
+        }
+      } catch (err) {
+        console.error('Error creating playlist:', err);
+        alert('An error occurred while creating the playlist.');
+      }
+    });
     </script>
     
 </body>

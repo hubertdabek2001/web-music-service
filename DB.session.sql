@@ -15,4 +15,16 @@ VALUES (
     'polski'
   );
 
-  ALTER TABLE new_playlist ADD 
+  SELECT requests.request_id,
+                requests.title,
+                requests.album,
+                requests.author,
+                requests.release_date,
+                requests.status,
+                requests.created_at,
+                STRING_SPLIT(requests.url, '/') AS s3key,
+                genre.genre_id,
+                genre.genre_name
+                FROM requests 
+                INNER JOIN genre on requests.genre_id = genre.genre_id 
+                WHERE request_id = 7

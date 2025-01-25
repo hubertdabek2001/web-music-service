@@ -123,6 +123,10 @@
                 </tbody>
             </table>
         </div>
+        <audio id="audio-player" controls>
+            <source id="audio-source" src="" type="audio/mpeg">
+            Your browser does not support the audio element.
+        </audio>
     </main>
     <script>
         async function verifyAccess() {
@@ -195,7 +199,7 @@ document.addEventListener('DOMContentLoaded', requestsPending);
 
         async function openEditForm(requestId) {
             try{
-                const response = await fetch(`/api/requests/${requestId}`);
+                const response = await fetch(`/api/requests/${requestId}/metadata`);
                 if(!response.ok){
                     throw new Error('Failed to fetch request');
                 }
@@ -380,17 +384,22 @@ document.addEventListener('DOMContentLoaded', requestsPending);
 
                         row.innerHTML = `
                         <th>${request.request_id}</th>
-                        <th>${request.title}</th>
-                        <th>${request.album}</th>
-                        <th>${request.author}</th>
-                        <th>${request.genre_name}</th>
-                        <th>${request.release_date}</th>
-                        <th>${request.status}</th>
-                        <th>${request.username}
-                        <th>${request.url}</th>
-                        <th><button onclick="openEditForm(${request.request_id})">Edit</button>
-                        <button onclick="addSong(${request.request_id})">Add Song</button></th>
-                        `;
+                    <th>${request.title}</th>
+                    <th>${request.album}</th>
+                    <th>${request.author}</th>
+                    <th>${request.genre_name}</th>
+                    <th>${request.release_date}</th>
+                    <th>${request.status}</th>
+                    <th>${request.username}</th>
+                    <th>
+                        
+                        <button onclick="playSong(${request.request_id})">Play</button>
+                    </th>
+                    <th>
+                        <button onclick="openEditForm(${request.request_id})">Edit</button>
+                        <button onclick="addSong(${request.request_id})">Add Song</button>
+                    </th>
+                    `;
 
                         tableBody.appendChild(row);
                     });
@@ -401,6 +410,8 @@ document.addEventListener('DOMContentLoaded', requestsPending);
                 console.error('Error fetching requests:',err);
             }
         }
+
+        
         
 
         document.getElementById('apply-sort').addEventListener('click', () => {
@@ -474,7 +485,7 @@ document.addEventListener('DOMContentLoaded', requestsPending);
         
         async function addSong(requestId) {
             try{
-                const response = await fetch(`/api/requests/${requestId}`);
+                const response = await fetch(`/api/requests/${requestId}/metadata`);
 
                 if(!response.ok){
                     throw new Error('Error fetching song information');
@@ -534,6 +545,14 @@ document.addEventListener('DOMContentLoaded', requestsPending);
             }
         }
 
+        function playSong(id) {
+            const audioSource = document.getElementById('audio-source');
+            audioSource.src = `/api/requests/${id}/audio`; // URL endpointu do strumieniowania piosenki
+            const audioPlayer = document.getElementById('audio-player');
+            audioPlayer.load();
+            audioPlayer.play();
+        }
+    
         
     </script>
 </body>

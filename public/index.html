@@ -21,6 +21,16 @@
         </nav>
     </header>
     <main>
+        <div id="search-container">
+            <input 
+                type="text" 
+                id="song-search-input" 
+                placeholder="Search by title, album, or author..." 
+            />
+            <button id="song-search-button">Search</button>
+        </div>
+        
+        <div id="search-results"></div>
         <h1>Welcome to the Music Listen app</h1>
         <div id="user-info" style="display: none;">
             <h2>User Information</h2>
@@ -36,6 +46,10 @@
         <button id="playlist-button" onclick="newPlaylistForm()" style="display: none;">New Playlist</button>
         <div id="playlists-holder">
 
+            <h1 id="playlist-h1" style="display: none;">Your Playlists</h1>
+            <div id="playlists_containter" style="display: none;">
+                <p id="playlist-info"></p>
+            </div>
         </div>
     </main>
     <script>
@@ -51,6 +65,7 @@
 
         if(response.ok){
             const user = await response.json();
+
             document.getElementById('user-info').style.display = 'block';
             document.getElementById('user-name').textContent = `${user.first_name} ${user.last_name}`;
             document.getElementById('user-username').textContent = user.username;
@@ -64,6 +79,11 @@
             document.getElementById('logout-link').style.display = 'inline';
 
             document.getElementById('playlist-button').style.display = 'block';
+            
+            document.getElementById('playlists_containter').style.display = 'block';
+            document.getElementById('playlist-h1').style.display = 'block';
+            
+            fetchPlaylists(user.user_id)
         }else {
             document.getElementById('auth-buttons').style.display = 'block';
             document.getElementById('login-link').style.display = 'inline';
@@ -76,11 +96,114 @@
         document.getElementById('register-link').style.display = 'inline';
     }
 }
-document.addEventListener('DOMContentLoaded', checkCurrentUser);
+
 
     function newPlaylistForm(){
         window.location.href = '/new-playlist.html';
     }
+
+    async function fetchPlaylists(userId) {
+        try {
+            const response = await fetch(`/api/user/playlists?user_id=${userId}`, {
+                method: 'GET',
+                credentials: 'include',
+            });
+
+            if(response.ok){
+                const playlists = await response.json();
+                displayPlaylists(playlists);
+            }else {
+                console.error('Failed to fetch user playlists');
+                document.getElementById('playlist-info').innerHTML = 'No playlists';
+            }
+            
+        } catch (err) {
+            console.error('Error fetching playlists', err);
+        }
+    }
+    function displayPlaylists(playlists){
+        const container = document.getElementById('playlists_containter');
+        container.innerHTML = '';
+
+        playlists.forEach((playlist) => {
+            const playlistDiv = document.createElement('div');
+            playlistDiv.className = 'playlist';
+            playlistDiv.innerHTML = `
+            <h3>${playlist.playlist_name}</h3>
+            <p>${playlist.playlist_description}</p>
+            <button onclick="fetchSongs(${playlist.playlist_id})">Show Songs</button>
+            <button onclick="deletePlaylist(${playlist.playlist_id})">Delete Playlist</button>
+            <div id="songs-${playlist.playlist_id}" class="song-list"></div>
+            `;
+            container.appendChild(playlistDiv);
+        });
+        
+    }
+
+    async function deletePlaylist(playlistId) {
+        if(!confirm('Are you sure you want to delete this playlist?') )return;
+
+        try{
+            const response = await fetch(`/api/user/playlist/delete?playlist_id=${playlistId}`, {
+                method: 'DELETE',
+            });
+            if(response.ok){
+                    alert('Playlist deleted Successfully');
+                    window.location.reload();
+                }else {
+                    alert('Falied to delete user');
+                }
+            
+        } catch (err) {
+            console.error('Failed deleting the playlist', err);
+        }
+        
+    }
+    document.addEventListener('DOMContentLoaded', checkCurrentUser);
+    
+    async function searchSongs() {
+        const query = document.getElementById('song-search-input').value;
+
+        if(!query.trim()) {
+            alert('Please enter a search term');
+            return;
+        }
+
+        try{
+            const response = await fetch(`/api/search/songs?query=${encodeURIComponent(query)}`);
+
+            if(response.ok) {
+                const songs = await response.json();
+                displaySearchResult(songs);
+            } else if (response.status === 404){
+                document.getElementById('search-results').innerHTML = '<p>No songs found</p>';
+            }else {
+            throw new Error('Failed to fetch search results');
+        }  
+    } catch (err) {
+        console.error('Error searching for songs:', err);
+        alert('An error occured while searching for songs');
+    }
+}
+function displaySearchResult(songs) {
+    const resultsContainer = document.getElementById('search-results');
+    resultsContainer.innerHTML = '';
+
+    songs.forEach(song => {
+        const songElement = document.createElement('div');
+        songElement.innerHTML = `
+            <h3>${song.title}</h3>
+            <p><strong>Album:</strong> ${song.album_name || 'N/A'}</p>
+            <p><strong>Author:</strong> ${song.author_name || 'N/A'}</p>
+            <p><strong>Genre:</strong> ${song.genre_name || 'N/A'}</p>
+            <p><strong>Release Date:</strong> ${song.release_date}</p>
+        `;
+        resultsContainer.appendChild(songElement);
+    })
+}
+document.getElementById('song-search-button').addEventListener('click', searchSongs);
+
+
     </script>
 </body>
 </html>

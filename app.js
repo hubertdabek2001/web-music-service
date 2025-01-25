@@ -10,7 +10,10 @@ const path = require('path');
 const nodemailer = require('nodemailer');
 const schedule = require('node-schedule');
 const multer = require('multer');
-const ftp = require('basic-ftp');
+const multerS3 = require('multer-s3');
+const { S3Client, PutObjectCommand, GetObjectCommand } = require("@aws-sdk/client-s3");
+
+const AWS = require('aws-sdk');
 const fs = require('fs');
 require('dotenv').config();
 
@@ -18,7 +21,10 @@ const app = express();
 const PORT = process.env.PORT;
 const SECRET_KEY = process.env.SECRET_KEY;
 
-const upload = multer({dest: 'uploads/'});
+const FTP_HOST = process.env.FTP_HOST;
+const FTP_USER = process.env.FTP_USER;
+const FTP_PASSWORD = process.env.FTP_PASSWORD;
+
 
 //middleware
 app.use(express.json());
@@ -58,8 +64,43 @@ function verifyAdmin(req, res, next){
     }
 }
 
+/*const s3 = new AWS.S3({
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    region: process.env.AWS_REGION,
+});*/
 
+const s3 = new S3Client({
+    region: process.env.AWS_REGION,
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    },
+});
 
+const bucketName = process.env.AWS_BUCKET_NAME;
+
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, "uploads/");
+    },
+    filename: (req, file, cb) =>{
+        const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+        cb(null, uniqueSuffix + path.extname(file.originalname));
+    },
+});
+
+const upload = multer({
+    storage,
+    fileFilter: function (req, file, cb) {
+        const allowedMimeType = ['audio/mpeg', 'audio/wav', 'audio/ogg'];
+        if(allowedMimeType.includes(file.mimetype)){
+            cb(null, true);
+        } else {
+            cb(new Error('Invalid file type. Only audio files allowed.'))
+        }
+    },
+});
 
 app.listen(PORT, () => {
     console.log(`Serwer działa na porcie ${PORT}`);
@@ -477,46 +518,61 @@ app.get('/api/users/:id', async(req, res) => {
 
 const allowedMimeType = ['audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp3'];
 
-//FTP: uploading new file
+
 app.post('/api/requests', upload.single('file'), async (req, res) => {
     try {
-        const {title, album, author, genre, release_date, user_id} = req.body;
+        const { title, album, author, genre, release_date, user_id, status } = req.body;
 
-        const filePath = req.file ? req.file.path : null; // Ścieżka do pliku (jeśli przesłano)
-        const fileMimeType = req.file ? req.file.mimetype : null;
-
-        if(!filePath || !allowedMimeType.includes(fileMimeType)){
-            return res.status(400).json({error: 'Inalid file type. Only audio files are allowed!'})
+        if (!req.file) {
+            return res.status(400).json({ error: 'File is required.' });
         }
 
+        const filePath = req.file.path;
+        const fileStream = fs.createReadStream(filePath);
+        const fileName = req.file.filename;
+        const s3Key = `uploads/audio/${fileName}`;
+
         // Walidacja danych wejściowych
-        if (!title || !album || !author || !genre || !release_date || !filePath) {
+        if (!title || !album || !author || !genre || !release_date) {
+            fs.unlinkSync(filePath);
             return res.status(400).json({ error: 'All fields are required.' });
         }
 
-        // Generowanie statusu i daty
-        const status = 'Pending'; // Domyślny status
-        const createdAt = new Date(Date.now() + 60 * 60 * 1000); // Data utworzenia rekordu
+        const uploadParams = {
+            Bucket: bucketName,
+            Key: s3Key,
+            Body: fileStream,
+            ContnetType: allowedMimeType,
+        };
 
-        // Zapytanie SQL do zapisu danych w tabeli `requests`
-     
-            await pool.query('INSERT INTO requests (title,album,author,genre_id,release_date,user_id,status,created_at,url) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9)', [
+        await s3.send(new PutObjectCommand(uploadParams));
+
+        fs.unlinkSync(filePath);
+
+        // Pobierz URL pliku z S3
+        const fileUrl = `https://${bucketName}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3Key}`;
+
+        // Generowanie statusu i daty
+        const statusPending = 'Pending'; // Domyślny status
+        const createdAt = new Date();
+
+        // Zapisz rekord w bazie danych
+        await pool.query(
+            'INSERT INTO requests (title, album, author, genre_id, release_date, user_id, status, created_at, url) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
+            [
                 title,
                 album,
                 author,
                 genre,
                 release_date,
                 user_id,
-                status,
+                statusPending,
                 createdAt,
-                filePath,
-            ]);
+                fileUrl,
+            ]
+        );
 
-        // Wykonanie zapytania
-        
-
-        // Zwrot odpowiedzi
-        res.status(200).json({ message: 'Request submitted successfully.' });
+        res.status(200).json({ message: 'Request submitted successfully.', fileUrl });
     } catch (error) {
         console.error('Error saving request:', error);
         res.status(500).json({ error: 'Internal server error' });
@@ -547,11 +603,11 @@ app.delete('/api/clear-requests', async(req, res) => {
     }
 })
 
-app.get('/api/requests/:id', async(req, res) => {
+/*app.get('/api/requests/:id', async (req, res) => {
     const { id } = req.params;
 
     try {
-        const request = await pool.query(`SELECT requests.request_id,
+        const requestQuery = await pool.query(`SELECT requests.request_id,
                 requests.title,
                 requests.album,
                 requests.author,
@@ -565,47 +621,138 @@ app.get('/api/requests/:id', async(req, res) => {
                 INNER JOIN genre on requests.genre_id = genre.genre_id 
                 WHERE request_id = $1`, [id]);
 
-        if(request.rows.length === 0){
-            return res.status(404).json({message: 'Request not found'});
+        if (requestQuery.rows.length === 0) {
+            return res.status(404).json({ message: 'Request not found' });
         }
 
-        res.status(200).json(request.rows[0]);
-    }catch (err){
+        // Zwróć dane z bazy danych
+        res.status(200).json(requestQuery.rows[0]);
+
+        const request = requestQuery.rows[0];
+        const s3Key = request.url.split('.com/')[1];
+
+        const fileName = path.basename(s3Key);
+        const tempFilePath = path.join(__dirname, 'temp', fileName);
+
+        const command = new GetObjectCommand({
+            Bucket: bucketName,
+            Key: s3Key,
+        });
+        const response = await s3.send(command);
+
+        const writeStream = fs.createWriteStream(tempFilePath);
+        response.Body.pipe(writeStream);
+
+        writeStream.on('finish', () => {
+            res.setHeader('Content-Type', 'audio/mpeg');
+
+            const readStream = fs.createReadStream(tempFilePath);
+            readStream.pipe(res);
+
+            readStream.on('close', () => {
+                fs.unlink(tempFilePath, (err) => {
+                    if (err) {
+                        console.error('Error deleting temporary file: ', err);
+                    }
+                });
+            });
+        });
+
+        writeStream.on('error', (err) => {
+            console.error('Error writing file:', err);
+            res.status(500).json({ message: 'Error processing file' });
+        });
+
+    } catch (err) {
         console.error('Error fetching requests', err);
-        res.status(500).json({message: 'Server Error'});
+        res.status(500).json({ message: 'Server Error' });
     }
-})
+});*/
 
-app.put('/api/requests/:id', async(req, res) => {
+app.get('/api/requests/:id/metadata', async (req, res) => {
     const { id } = req.params;
-    const { title, album, author, genre, release_date, status} = req.body;
 
-    if( !title || !album || !author || !genre || !release_date || !status){
-        return res.status(400).json({message: 'All field are required'});
+    try {
+        const requestQuery = await pool.query(`SELECT requests.request_id,
+                requests.title,
+                requests.album,
+                requests.author,
+                requests.release_date,
+                requests.status,
+                requests.created_at,
+                requests.url,
+                genre.genre_id,
+                genre.genre_name
+                FROM requests 
+                INNER JOIN genre on requests.genre_id = genre.genre_id 
+                WHERE request_id = $1`, [id]);
+
+        if (requestQuery.rows.length === 0) {
+            return res.status(404).json({ message: 'Request not found' });
+        }
+
+        // Zwróć JSON z metadanymi
+        res.status(200).json(requestQuery.rows[0]);
+    } catch (err) {
+        console.error('Error fetching requests', err);
+        res.status(500).json({ message: 'Server Error' });
     }
-    
-    try{
-        const result = await pool.query(`UPDATE requests SET 
-            title = $1,
-            album = $2,
-            author = $3,
-            genre_id = $4,
-            release_date = $5,
-            status = $6 where request_id = $7 RETURNING *`, [ title, album, author, genre, release_date, status, id]);
+});
 
-            if(result.rowCount === 0) {
-                return res.status(404).json({message: 'Request not found'});
-            }
+app.get('/api/requests/:id/audio', async (req, res) => {
+    const { id } = req.params;
 
-            res.status(200).json({
-                message: 'Request updated successfully',
-                request: result.rows[0],
-            })
-    } catch (err){
-        console.error('Error updating request: ',err);
-        res.status(500).json({message: 'Server error'});
+    try {
+        const requestQuery = await pool.query(`SELECT requests.url
+                FROM requests 
+                WHERE request_id = $1`, [id]);
+
+        if (requestQuery.rows.length === 0) {
+            return res.status(404).json({ message: 'Audio not found' });
+        }
+
+        const request = requestQuery.rows[0];
+        const s3Key = request.url.split('.com/')[1];
+
+        const fileName = path.basename(s3Key);
+        const tempFilePath = path.join(__dirname, 'temp', fileName);
+
+        const command = new GetObjectCommand({
+            Bucket: bucketName,
+            Key: s3Key,
+        });
+        const response = await s3.send(command);
+
+        const writeStream = fs.createWriteStream(tempFilePath);
+        response.Body.pipe(writeStream);
+
+        writeStream.on('finish', () => {
+            res.setHeader('Content-Type', 'audio/mpeg');
+
+            const readStream = fs.createReadStream(tempFilePath);
+            readStream.pipe(res);
+
+            readStream.on('close', () => {
+                fs.unlink(tempFilePath, (err) => {
+                    if (err) {
+                        console.error('Error deleting temporary file: ', err);
+                    }
+                });
+            });
+        });
+
+        writeStream.on('error', (err) => {
+            console.error('Error writing file:', err);
+            res.status(500).json({ message: 'Error processing file' });
+        });
+
+    } catch (err) {
+        console.error('Error fetching audio', err);
+        res.status(500).json({ message: 'Server Error' });
     }
-})
+});
+
+
 
 
 app.get('/api/check-album-author', async (req, res) => {
@@ -734,43 +881,49 @@ app.get('/api/songs/:song_id', async (req, res) => {
         }
         
         const song  = songQuery.rows[0];
-        const filename = song.filename;
-        const ftpPath = song.url;
+        const s3Key = song.url.split('.com/')[1];
+        const fileName = path.basename(s3Key);
+        const localFilePath = path.join(__dirname, 'temp', fileName);
 
+        
+        
+        const getObjectParams = {
+            Bucket: bucketName,
+            Key: s3Key,
+        };
 
-        const localFilePath = path.join(__dirname, 'temp', filename);
+        const command = new GetObjectCommand(getObjectParams);
+        const response = await s3.send(command);
 
-        const client = new ftp.Client();
-        client.ftp.verbose = true;
+        const writeStream = fs.createWriteStream(localFilePath);
+        response.Body.pipe(writeStream);
+        
 
-        await client.access({
-            host:FTP_HOST,
-            user:FTP_USER,
-            password:FTP_PASSWORD,
-            secure: false
-        });
+        writeStream.on('finish', () => {
+            res.setHeader = ('ContnetType', allowedMimeType);
+            const readStream = fs.createReadStream(localFilePath); 
 
-        await client.downloadTo(localFilePath, ftpPath);
-        client.close();
-
-        res.setHeader('Content-Type', 'audio/mpeg');
-        const readStream = fs.createReadStream(localFilePath);
-
-        readStream.on('open', () =>{
-            readStream.pipe(res);
-        })
-
-        readStream.on('error', (err) =>{
-            console.error('Error stream the file: ',err);
-            res.status(500).json({error: 'Failed to stream file'});
-        });
-
-        readStream.on('close', () => {
-            fs.unlink(lovalFilePath, (err) => {
-                if (err){
-                    console.error('Error deleting temporary file: ', err);
-                };
+            readStream.on('open', () =>{
+                readStream.pipe(res);
+            })
+            readStream.on('error', (err) =>{
+                console.error('Error stream the file: ',err);
+                res.status(500).json({error: 'Failed to stream file'});
             });
+    
+            readStream.on('close', () => {
+                fs.unlink(localFilePath, (err) => {
+                    if (err){
+                        console.error('Error deleting temporary file: ', err);
+                    };
+                });
+            });
+        });
+
+    
+        writeStream.on('error', (err) => {
+            console.error('Error writing file to local storage: ', err);
+            res.status(500).json({ error: 'Failed to save file locally'});
         });
     } catch (err) {
         console.error('Error fetching song: ', err);
@@ -780,10 +933,154 @@ app.get('/api/songs/:song_id', async (req, res) => {
 
 app.get('/api/songs', async (req, res) => {
     try{
-        const songs = await pool.query('SELECT song_id, title FROM song');
+        const songs = await pool.query('SELECT song.song_id, song.url, song.title, author.author_name as artist FROM song INNER JOIN author on song.author_id = author.author_id');
         res.status(200).json(songs.rows);
     } catch (err) {
         console.error('Error fetching songs: ',err);
         res.status(500).json({error: 'Internal server error'});
+    }
+})
+
+app.put('/api/requests/:id', async (req, res) => {
+    const { id } = req.params; // ID żądania do aktualizacji
+    const { title, album, author, genre, release_date, status } = req.body; // Dane do aktualizacji
+
+    // Sprawdzenie, czy wszystkie wymagane pola zostały przesłane
+    if (!title || !album || !author || !genre || !release_date || !status) {
+        return res.status(400).json({ message: 'All fields are required' });
+    }
+
+    try {
+        // Aktualizacja rekordu w bazie danych
+        const result = await pool.query(
+            `UPDATE requests 
+            SET title = $1, 
+                album = $2, 
+                author = $3, 
+                genre_id = $4, 
+                release_date = $5, 
+                status = $6 
+            WHERE request_id = $7 
+            RETURNING *`,
+            [title, album, author, genre, release_date, status, id]
+        );
+
+        // Jeśli żądanie nie istnieje, zwróć błąd
+        if (result.rowCount === 0) {
+            return res.status(404).json({ message: 'Request not found' });
+        }
+
+        // Sukces: zwróć zaktualizowane dane
+        res.status(200).json({
+            message: 'Request updated successfully',
+            request: result.rows[0],
+        });
+    } catch (err) {
+        console.error('Error updating request: ', err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+app.post('/api/playlists', async (req, res) => {
+    const { playlist_name, playlist_description, user_id} = req.body;
+
+
+    try {
+
+     // 1. Dodajemy nową playlistę do tabeli new_playlist
+        const newPlaylistResult = await pool.query(
+            `INSERT INTO new_playlist (playlist_name, playlist_description, user_id) 
+             VALUES ($1, $2, $3) RETURNING playlist_id`,
+            [playlist_name, playlist_description, user_id]
+        );
+
+        const playlistId = newPlaylistResult.rows[0].playlist_id;
+
+        
+
+        await pool.query('INSERT INTO playlist (playlist_id) VALUES ($1)', [playlistId]);
+
+        res.status(201).json({ message: 'Playlist created successfully', playlist_id: playlistId });
+    } catch (err) {
+        
+        console.error('Error creating playlist:', err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+});
+
+app.get('/api/user/playlists', async (req, res) => {
+    const { user_id } = req.query;
+    if (!user_id) {
+        return res.status(400).json({ message: 'Missing user_id parameter' });
+    }
+
+    try{
+        const playlistQuery = await pool.query(`
+            SELECT playlist_id, playlist_name, playlist_description
+            FROM new_playlist
+            WHERE user_id = $1`, [user_id]);
+
+            if(playlistQuery.rows.length === 0){
+                return res.status(404).json({message: 'No playlist found for this user'})
+            }
+
+            res.status(200).json(playlistQuery.rows);
+    }catch (err){
+        console.error('Error fetching plalists: ', err);
+        res.status(500).json({message: 'Internal state error'});
+    }
+})
+
+app.delete('/api/user/playlist/delete', async (req, res) => {
+    const { playlist_id } = req.query;
+
+    if(!playlist_id){
+        return res.status(400).json({message: 'Failed to find the playlist'})
+    }
+    try{
+        const response = await pool.query('DELETE FROM playlist WHERE playlist_id = $1', [playlist_id])
+        
+
+        await pool.query('DELETE FROM new_playlist WHERE playlist_id = $1', [playlist_id])
+        res.status(200).json({message: 'Playlist deleted successfully.'})
+    } catch (err) {
+        console.error('Failed deleting the playlist', err);
+        res.status(500).json({message: 'Internal state error'});
+    }
+    
+})
+
+app.get('/api/search/songs/', async (req, res) => {
+    const { query } = req.query;
+
+    if(!query || query.trim() === '') {
+        return res.status(400).json({message: 'Query parameter is required'});
+    }
+
+    try {
+        const searchQuery = `
+        SELECT s.song_id, s.title, s.release_date, s.url, 
+        a.album_name, au.author_name, g.genre_name
+        FROM song s
+        LEFT JOIN album a ON s.album_id = a.album_id
+        LEFT JOIN author au ON s.author_id = au.author_id
+        LEFT JOIN genre g ON s.genre_id = g.genre_id
+        WHERE LOWER(s.title) LIKE LOWER($1)
+            OR LOWER(a.album_name) LIKE LOWER($1)
+            OR LOWER(au.author_name) LIKE LOWER($1)
+        `;
+
+        const values = [`%${query}%`];
+
+        const result = await pool.query(searchQuery, values);
+
+        if(result.rows.length === 0){
+            return res.status(404).json({message: 'No songs found'});
+        }
+
+        res.status(200).json(result.rows);
+    } catch (err) {
+        console.error('Error searching for songs: ', err);
+        res.status(500).json({message: 'Internal state error'});
     }
 })
