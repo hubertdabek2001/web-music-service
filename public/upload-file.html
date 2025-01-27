@@ -69,12 +69,11 @@
             }
         }
 
-        // Handle form submission
         document.getElementById('song-request-form').addEventListener('submit', async (event) => {
     event.preventDefault();
 
     const formElement = document.getElementById('song-request-form');
-    const formData = new FormData(formElement); // Zbiera wszystkie pola formularza
+    const formData = new FormData(formElement);
 
     try {
 
@@ -106,7 +105,6 @@
 });
 
 
-        // Initialize the genres dropdown when the page loads
         document.addEventListener('DOMContentLoaded', fetchGenres);
     </script>
     

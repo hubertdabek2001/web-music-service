@@ -79,12 +79,9 @@
         document.getElementById('new-playlist-form').addEventListener('submit', async (event) => {
       event.preventDefault();
 
-      // Pobierz dane z formularza
       const playlist_name = document.getElementById('playlist-name').value;
       const playlist_description = document.getElementById('playlist-description').value;
       
-
-      // Utwórz obiekt żądania
       const newPlaylist = {
         playlist_name,
         playlist_description,
@@ -92,7 +89,6 @@
       };
 
       try {
-        // Wyślij żądanie POST do API
         const response = await fetch('/api/playlists', {
           method: 'POST',
           headers: {

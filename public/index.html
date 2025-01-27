@@ -22,12 +22,11 @@
     </header>
     <main>
 
-        <!-- Modal do dodawania piosenek do playlisty -->
 <div id="addPlaylistModal" class="modal" style="display: none;">
     <div class="modal-content">
       <span class="close" id="closeAddPlaylistModal">&times;</span>
       <h2>Wybierz playlistę</h2>
-      <!-- Kontener, w którym wyświetlimy playlisty -->
+
       <div id="userPlaylistsContainer"></div>
     </div>
   </div>
@@ -230,25 +229,22 @@ function displayPlaylists(playlists) {
 const searchResults = document.getElementById('live-search-results');
     const searchContainer = document.getElementById('live-search-container');
 
-    // Funkcja, która zamknie wyniki wyszukiwania
     function closeSearchResults() {
-        searchResults.style.display = 'none'; // Ukrywa wyniki
+        searchResults.style.display = 'none';
     }
 
     document.addEventListener('click', function(event) {
-        // Sprawdzenie, czy kliknięto poza kontenerem wyszukiwania
         if (!searchContainer.contains(event.target)) {
-            closeSearchResults(); // Zamknij wyniki wyszukiwania
+            closeSearchResults(); 
         }
     });
 
     const searchInput = document.getElementById('live-search-input');
     searchInput.addEventListener('input', function() {
         if (searchInput.value.trim() !== "") {
-            searchResults.style.display = 'block'; // Pokazuje wyniki wyszukiwania
-            // Tutaj możesz dodać logikę dynamicznego wyszukiwania
+            searchResults.style.display = 'block'; 
         } else {
-            closeSearchResults(); // Zamknięcie wyników, jeśli pole wyszukiwania jest puste
+            closeSearchResults(); 
         }
     });
 
@@ -312,7 +308,6 @@ const closeAddPlaylistModalBtn = document.getElementById('closeAddPlaylistModal'
 
 async function showAddToPlaylistModal(songId, userId) {
     try {
-        // Pobierz playlisty użytkownika
         const response = await fetch(`/api/user/playlists?user_id=${userId}`, {
             method: 'GET',
             credentials: 'include'
@@ -322,12 +317,11 @@ async function showAddToPlaylistModal(songId, userId) {
             throw new Error('Błąd podczas pobierania playlist użytkownika');
         }
         closeSearchResults(); 
+
         const playlists = await response.json();
 
-        // Wyświetl playlisty w modalu
         displayUserPlaylistsInModal(playlists, songId);
 
-        // Pokaż modal
         addPlaylistModal.style.display = 'block';
     } catch (error) {
         console.error(error);
@@ -337,14 +331,13 @@ async function showAddToPlaylistModal(songId, userId) {
 
 function displayUserPlaylistsInModal(playlists, songId) {
     const userPlaylistsContainer = document.getElementById('userPlaylistsContainer');
-    userPlaylistsContainer.innerHTML = ''; // Wyczyść poprzednią zawartość
+    userPlaylistsContainer.innerHTML = ''; 
 
     if (!playlists.length) {
         userPlaylistsContainer.innerHTML = '<p>Nie masz jeszcze żadnych playlist.</p>';
         return;
     }
 
-    // Tworzymy listę/elementy z playlistami
     playlists.forEach((playlist) => {
         const playlistDiv = document.createElement('div');
         playlistDiv.classList.add('modal-playlist-item'); 
@@ -354,7 +347,6 @@ function displayUserPlaylistsInModal(playlists, songId) {
             <button>Dodaj do tej playlisty</button>
         `;
 
-        // Po kliknięciu "Dodaj do tej playlisty" wywołujemy funkcję POST
         const addButton = playlistDiv.querySelector('button');
         addButton.addEventListener('click', async () => {
             await addSongToPlaylist(playlist.playlist_id, songId);
@@ -374,7 +366,6 @@ async function addSongToPlaylist(playlistId, songId) {
             },
             credentials: 'include',
             body: JSON.stringify({ 
-                // Zakładamy, że API oczekuje np. { "song_id": 123 }
                 song_id: songId 
             })
         });
@@ -383,11 +374,10 @@ async function addSongToPlaylist(playlistId, songId) {
             throw new Error('Nie udało się dodać piosenki do playlisty');
         }
 
-        // Możesz wstawić tu dowolną logikę: powiadomienie o sukcesie, zamknięcie modala itd.
+    
         const result = await response.json();
         console.log('Dodano piosenkę do playlisty:', result);
 
-        // Na przykład zamknięcie modala i/lub wyświetlenie komunikatu
         closeAddPlaylistModal();
         alert(`Pomyślnie dodano piosenkę do playlisty o ID: ${playlistId}`);
     } catch (error) {
@@ -396,9 +386,6 @@ async function addSongToPlaylist(playlistId, songId) {
     }
 }
 
-/**
- * Zamknięcie modala
- */
 
 closeAddPlaylistModalBtn.addEventListener('click', closeAddPlaylistModal);
 

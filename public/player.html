@@ -48,7 +48,7 @@
       gap: 10px;
     }
     #search-input {
-      width: 100%;
+      width: 95%;
       padding: 6px 10px;
       margin-bottom: 12px;
     }
@@ -56,7 +56,6 @@
       width: 100%;
       margin-top: 20px;
     }
-    /* Opcjonalne style do aktywnego trybu shuffle/repeat */
     .active-mode {
       background-color: #f0c040;
     }
@@ -66,29 +65,21 @@
   <div class="player-container">
     <h2>Playlist Player</h2>
     
-    <!-- Pole wyszukiwania piosenek w playliście -->
-    <input
-      type="text"
-      id="search-input"
-      placeholder="Search songs..."
-    />
 
-    <!-- Kontener na listę utworów -->
+    <input type="text" id="search-input"placeholder="Search songs..."/>
+
     <div id="song-list"></div>
 
-    <!-- Kontrolki: Poprzedni, Następny -->
     <div id="player-controls">
       <button id="prev-button">Prev</button>
       <button id="next-button">Next</button>
     </div>
 
-    <!-- Dodatkowe kontrolki: Shuffle i Repeat -->
     <div class="extra-controls">
       <button id="shuffle-button">Shuffle Off</button>
       <button id="repeat-button">Repeat Off</button>
     </div>
 
-    <!-- Odtwarzacz audio -->
     <audio id="audio-player" controls>
       <source id="audio-source" src="" type="audio/mpeg">
       Your browser does not support the audio element.
@@ -96,19 +87,17 @@
   </div>
 
   <script>
-    // --- Zmienne globalne ---
-    let songs = [];         // Tablica piosenek (z backendu)
-    let currentIndex = -1;  // Indeks aktualnie odtwarzanej piosenki
 
-    // Tryby
-    let shuffleMode = false; // Czy odtwarza losowo
-    let repeatMode = false;  // Czy powtarza ten sam utwór
+    let songs = [];
+    let currentIndex = -1; 
 
-    // Wczytywanie parametrów z URL lub default
+
+    let shuffleMode = false;
+    let repeatMode = false; 
+
     const params = new URLSearchParams(window.location.search);
     const playlistId = params.get('playlistId') || 1;
 
-    // Referencje do elementów w DOM
     const songListContainer = document.getElementById('song-list');
     const audioPlayer = document.getElementById('audio-player');
     const audioSource = document.getElementById('audio-source');
@@ -119,33 +108,26 @@
     const repeatButton = document.getElementById('repeat-button');
     const searchInput = document.getElementById('search-input');
 
-    // 1. Pobieramy listę piosenek z API
+
     async function fetchPlaylistSongs() {
       try {
         const response = await fetch(`/api/playlists/${playlistId}/songs`);
         if (!response.ok) {
           throw new Error('Failed to fetch playlist songs');
         }
-        // Zapisujemy w zmiennej globalnej
         songs = await response.json();
-        // Wyświetlamy piosenki (na start wszystkie)
         displaySongList(songs);
       } catch (error) {
         console.error('Error fetching playlist songs:', error);
         songListContainer.innerHTML = `<p>Error loading playlist.</p>`;
       }
     }
-
-    // 2. Wyświetlanie (filtrowanej) listy piosenek
-    //    Funkcja przyjmuje tablicę "songsToDisplay",
-    //    która może być pełna lub przefiltrowana
     function displaySongList(songsToDisplay) {
       if (!songsToDisplay || songsToDisplay.length === 0) {
         songListContainer.innerHTML = `<p>No songs available.</p>`;
         return;
       }
 
-      // Ogranicz wysokość i dodaj scroll, jeśli jest więcej niż 5 piosenek (opcjonalnie):
       if (songsToDisplay.length > 5) {
         songListContainer.style.maxHeight = '300px';
         songListContainer.style.overflowY = 'auto';
@@ -159,18 +141,11 @@
         const songItem = document.createElement('div');
         songItem.classList.add('song-item');
 
-        // Uwaga: w oryginalnej tablicy "songs" utwory
-        // mogą być w innej kolejności niż w "songsToDisplay".
-        // W tym przypadku będziemy używać "index" TYLKO do klikania i odtwarzania.
-        // Dobrze jest zapisać "songIndex" jako ID oryginalnej piosenki w "songs".
-        // Można dodać np.:
         const originalIndex = songs.indexOf(song); 
-        // Wyszukujemy piosenkę w oryginalnej tablicy, żeby móc odtworzyć właściwy element.
 
         songItem.textContent = `${song.title} by ${song.author_name || 'Unknown'}`;
         songItem.dataset.songIndex = originalIndex;
 
-        // Po kliknięciu – uruchamiamy playSong z właściwym indeksem
         songItem.addEventListener('click', () => {
           playSongByIndex(originalIndex);
         });
@@ -179,36 +154,30 @@
       });
     }
 
-    // 3. Odtwarzanie utworu na podstawie indeksu w tablicy `songs`
     function playSongByIndex(index) {
       if (index < 0 || index >= songs.length) return;
       currentIndex = index;
       const currentSong = songs[currentIndex];
 
-      // Ustawiamy src = endpoint stream z parametrem songId
       audioSource.src = `/api/playlists/${playlistId}/stream?songId=${currentSong.song_id}`;
       audioPlayer.load();
       audioPlayer.play();
 
-      // Wyróżnij aktualnie odtwarzany utwór w liście
       highlightCurrentSong(index);
     }
 
-    // 4. Wyróżnienie aktualnie odtwarzanego utworu
     function highlightCurrentSong(index) {
       const allSongItems = document.querySelectorAll('.song-item');
       allSongItems.forEach(item => {
         item.classList.remove('playing');
       });
 
-      // Szukamy elementu, którego data-song-index == index
       const currentItem = document.querySelector(`.song-item[data-song-index="${index}"]`);
       if (currentItem) {
         currentItem.classList.add('playing');
       }
     }
 
-    // 5. Obsługa "Prev"
     function prevSong() {
       if (repeatMode) {
         playSongByIndex(currentIndex);
@@ -228,7 +197,6 @@
       }
     }
 
-    // 6. Obsługa "Next"
     function nextSong() {
       if (repeatMode) {
         playSongByIndex(currentIndex);
@@ -247,8 +215,6 @@
         }
       }
     }
-
-    // 7. Toggle Shuffle
     function toggleShuffle() {
       shuffleMode = !shuffleMode;
       shuffleButton.textContent = shuffleMode ? 'Shuffle On' : 'Shuffle Off';
@@ -258,8 +224,6 @@
         shuffleButton.classList.remove('active-mode');
       }
     }
-
-    // 8. Toggle Repeat
     function toggleRepeat() {
       repeatMode = !repeatMode;
       repeatButton.textContent = repeatMode ? 'Repeat On' : 'Repeat Off';
@@ -270,36 +234,25 @@
       }
     }
 
-    // 9. Obsługa zdarzeń
     prevButton.addEventListener('click', prevSong);
     nextButton.addEventListener('click', nextSong);
     shuffleButton.addEventListener('click', toggleShuffle);
     repeatButton.addEventListener('click', toggleRepeat);
 
-    // Gdy piosenka się skończy – automatycznie nextSong()
     audioPlayer.addEventListener('ended', () => {
       nextSong();
     });
 
-    // 10. Search: filtrujemy listę piosenek wpisując w input
     searchInput.addEventListener('input', (event) => {
       const query = event.target.value.toLowerCase().trim();
-
-      // Filtrujemy utwory w oparciu o tytuł lub nazwę autora
       const filteredSongs = songs.filter(song => {
         const titleMatch = song.title?.toLowerCase().includes(query);
         const authorMatch = song.author_name?.toLowerCase().includes(query);
         return titleMatch || authorMatch;
       });
-
-      // Wyświetlamy przefiltrowaną listę
       displaySongList(filteredSongs);
-      // UWAGA: jeżeli aktualnie odtwarzany utwór nie znajduje się w filteredSongs,
-      // nie zostanie wyświetlony w liście – ale nadal gra. Możesz dostosować
-      // zachowanie według potrzeb (np. zatrzymać odtwarzanie, jeśli nie ma go na liście).
     });
 
-    // 11. Pobierz listę piosenek przy załadowaniu strony
     fetchPlaylistSongs();
   </script>
 </body>
