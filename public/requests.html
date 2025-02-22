@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="styles.css">
+
     <title>Song Requests</title>
 </head>
 <body>
@@ -46,7 +47,7 @@
                 <option value="desc">Decsnding</option>
             </select>
             <button id="apply-sort">Apply</button>
-            <table id="request-table" border="1">
+            <table id="request-table"border="1">
                 <thead>
                     <tr>
                         <th>ID</th>
@@ -62,24 +63,24 @@
                     </tr>
                 </thead>
                 <div id="dynamic-form-container" style="display: none;">
-                    <form id="dynamic-form">
+                    <form id="dynamic-form" style="display: none;">
                         <div id="new-author-section" style="display: none;">
                             <h3>Add Author</h3>
                             <label for="dynamic-author-name">Author Name:</label>
-                            <input type="text" id="dynamic-author-name" name="dynamic-author-name">
+                            <input type="text" id="dynamic-author-name" name="dynamic-author-name" class="input">
                         </div>
                 
                         <div id="new-album-section" style="display: none;">
                             <h3>Add Album</h3>
                             <label for="dynamic-album-name">Album Name:</label>
-                            <input type="text" id="dynamic-album-name" name="dynamic-album-name">
+                            <input type="text" id="dynamic-album-name" name="dynamic-album-name" class="input">
                             <label for="dynamic-release-date">Release Date:</label>
-                            <input type="date" id="dynamic-release-date" name="dynamic-release-date">
+                            <input type="date" id="dynamic-release-date" name="dynamic-release-date" class="input">
                             <label for="dynamic-genre-id">Genre:</label>
-                            <select id="dynamic-genre-id" name="dynamic-genre-id">
+                            <select id="dynamic-genre-id" name="dynamic-genre-id" class="input">
                                 <!-- Populate genres dynamically -->
                             </select>
-                            <input type="hidden" id="dynamic-author-id" name="dynamic-author-id">
+                            <input type="hidden" id="dynamic-author-id" name="dynamic-author-id" class="input">
                         </div>
                 
                         <button type="submit">Submit</button>
@@ -88,27 +89,28 @@
                 
                 <tbody>
                     <div id="edit-request-container" style="display: none;">
-                        <h2>Edit Request</h2>
-                        <form id="edit-request-form">
+                        
+                        <form id="edit-request-form" class="edit" style="display: none;">
+                            <h2>Edit Request</h2>
                             <label for="edit-title">Title:</label>
-                            <input type="text" id="edit-title" name="title" required>
+                            <input type="text" id="edit-title" name="title" class="input" required>
 
                             <label for="edit-album">Album:</label>
-                            <input type="text" id="edit-album" name="album" required>
+                            <input type="text" id="edit-album" name="album" class="input" required>
 
                             <label for="edit-author">Author:</label>
-                            <input type="text" id="edit-author" name="author" required>
+                            <input type="text" id="edit-author" name="author" class="input" required>
 
                             <label for="genre">Genre:</label>
-                            <select id="edit-genre" name="genre" required>
+                            <select id="edit-genre" name="genre" class="input" required>
                                 <option value="">--Select a Genre--</option>
                             </select>
 
                             <label for="edit-release-date">Release Date:</label>
-                            <input type="date" id="edit-release-date" name="release_date" required>
+                            <input type="date" id="edit-release-date" name="release_date" class="input" required>
 
                             <label for="edit-status">Status:</label>
-                            <select name="status" id="edit-status" required>
+                            <select name="status" id="edit-status" class="input" required>
                                 <option value="Pending">Pending</option>
                                 <option value="Approved">Approved</option>
                                 <option value="Rejected">Rejected</option>

@@ -20,15 +20,18 @@
     </header>
     <main>
         <div id="content">
-            <h1>Login</h1>
+            
+            <div id="loginBox" class="box">
             <form id="login-form">
+                <h1>Login</h1>
                 <label for="username">Username:</label>
-                <input type="text" id="username" name=""username required>
+                <input type="text" id="username" name="username" class="input" placeholder="Login" required>
                 <label for="password">Password:</label>
-                <input type="password" id="password" name="password" required>
-                <button type="submit">Login</button>
+                <input type="password" id="password" name="password" class="input" placeholder="Password" required>
+                <button type="submit" class="submit">Login</button>
             </form>
             <p id="login-error" style="color: red; display: none;">Invalid username or password!</p>
+            </div>
         </div>
     </main>
     <script>

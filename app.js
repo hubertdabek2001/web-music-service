@@ -1152,5 +1152,42 @@ app.get('/api/playlists/:playlistId/songs', async (req, res) => {
   });
   
 
+  app.post('/api/playlists/:playlistId/songs', async (req, res) => {
+    const { playlistId } = req.params; // Pobierz ID playlisty z URL
+    const { song_id } = req.body; // Pobierz ID piosenki z treści żądania
+
+    if (!song_id) {
+        return res.status(400).json({ message: 'Song ID is required' });
+    }
+
+    try {
+        // Sprawdź, czy playlista istnieje
+        const playlistExists = await pool.query(
+            'SELECT * FROM new_playlist WHERE playlist_id = $1',
+            [playlistId]
+        );
+
+        if (playlistExists.rows.length === 0) {
+            return res.status(404).json({ message: 'Playlist not found' });
+        }
+
+        // Dodaj piosenkę do playlisty
+        const addSongQuery = `
+            INSERT INTO playlist (playlist_id, song_id)
+            VALUES ($1, $2)
+            RETURNING *;
+        `;
+
+        const result = await pool.query(addSongQuery, [playlistId, song_id]);
+
+        res.status(201).json({
+            message: 'Song added to playlist successfully',
+            song: result.rows[0],
+        });
+    } catch (err) {
+        console.error('Error adding song to playlist:', err);
+        res.status(500).json({ message: 'Server Error' });
+    }
+});
 
 
